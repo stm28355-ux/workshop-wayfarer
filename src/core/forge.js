@@ -1,7 +1,7 @@
 // 打ち分けの1回ぶん（叩いている間）の決まり。純粋な関数だけで、元の物は変えない。
 // 盤の各マスに目標の真ん中 c があり、帯は c±1。帯の中で○、真ん中で◎、超えるとひび。
 // 温度は 灼熱 → 赤熱 → 暗赤 の3段（temp 0〜2、3 は冷えて叩けない）。1段で perLevel 回叩くと下がる。
-// 火を足すは段の頭（その段でまだ叩いていない）で使うと1段戻る（叩いた回数には入らない）。
+// 火を足すはいつでも使え、1段熱くなってその段を最初から叩ける（叩いた回数には入らない）。
 
 import { GEAR, STRIKES, TEMPS, GEAR_KINDS, bandOf } from '../data/forge.js';
 
@@ -75,13 +75,14 @@ export function strike(session, id, cell) {
   return s;
 }
 
+// 火を足すはいつでも使える（判定表 第5回 Q3）。1段熱くなり、その段を最初から（perLevel 回）叩ける。
 export function canFire(session) {
-  return session.fire > 0 && session.temp > 0 && session.left === session.perLevel;
+  return session.fire > 0 && session.temp > 0;
 }
 
 export function addFire(session) {
   if (!canFire(session)) return null;
-  return { ...session, temp: session.temp - 1, fire: session.fire - 1, log: [...session.log, ['fire']] };
+  return { ...session, temp: session.temp - 1, left: session.perLevel, fire: session.fire - 1, log: [...session.log, ['fire']] };
 }
 
 // もう何もできない（集中力が切れたか、冷えて火も足せない）。

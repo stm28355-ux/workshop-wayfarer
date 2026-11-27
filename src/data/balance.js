@@ -9,8 +9,9 @@ export const HERO = Object.freeze({
   baseAtk: 10,
   baseHp: 60,
   attackTicks: 10,
-  regen: 2,
+  regen: 4,
   regenEvery: 5,
+  walk: 2,
 });
 export const LEVEL = Object.freeze({ mult: 1.08 });
 
@@ -46,41 +47,41 @@ export const WORKSHOP = Object.freeze({
 export const REGIONS = Object.freeze([
   {
     id: 1, name: '草原', wall: '素の敵', gap: 12, drain: 1, bossAt: 800,
-    enemy: { name: 'スライム', hp: 16, hpStep: 0.5, atk: 1, atkEvery: 20, hits: 1 },
+    enemy: { name: 'スライム', hp: 16, hpStep: 0.5, atk: 1, atkEvery: 30, hits: 1 },
     boss: { name: '大きなスライム', hp: 200, atk: 4, hits: 1 },
     drops: [{ kind: 'iron', rank: 1 }, { kind: 'fire', rank: 1 }],
     unlocks: ['region:2', 'exit:workshop', 'stage:forge'],
   },
   {
-    id: 2, name: '坑道', wall: '群れ', gap: 30, drain: 2, bossAt: 1800,
+    id: 2, name: '坑道', wall: '群れ', gap: 30, drain: 1.4, bossAt: 1800,
     enemy: { name: '岩虫の群れ', hp: 30, hpStep: 1, atk: 3, atkEvery: 15, hits: 3 },
     boss: { name: '岩虫の女王', hp: 1400, atk: 4, hits: 4 },
     drops: [{ kind: 'iron', rank: 2 }, { kind: 'copper', rank: 1 }, { kind: 'stone', rank: 1 }, { kind: 'copper', rank: 2 }],
     unlocks: ['region:3', 'crafter:merge', 'stage:dojo', 'school:guard', 'school:sword'],
   },
   {
-    id: 3, name: '古い森', wall: '硬い殻', gap: 30, drain: 4, bossAt: 2100,
+    id: 3, name: '古い森', wall: '硬い殻', gap: 30, drain: 2.8, bossAt: 2100,
     enemy: { name: '甲虫', hp: 120, hpStep: 4, atk: 12, atkEvery: 10, hits: 1 },
     boss: { name: '甲羅の古木', hp: 7200, atk: 30, hits: 1 },
     drops: [{ kind: 'copper', rank: 2 }, { kind: 'ice', rank: 2 }, { kind: 'wind', rank: 2 }, { kind: 'copper', rank: 3 }],
     unlocks: ['region:4', 'crafter:forge', 'school:magic', 'school:bow'],
   },
   {
-    id: 4, name: '雪山', wall: '盾（多段）', gap: 30, drain: 8, bossAt: 2400,
+    id: 4, name: '雪山', wall: '盾（多段）', gap: 30, drain: 5.6, bossAt: 2400,
     enemy: { name: '盾の兵', hp: 500, hpStep: 20, atk: 10, atkEvery: 10, hits: 2 },
     boss: { name: '氷の門番', hp: 34000, atk: 30, hits: 2 },
     drops: [{ kind: 'mithril', rank: 2 }, { kind: 'ice', rank: 3 }, { kind: 'thunder', rank: 2 }, { kind: 'mithril', rank: 3 }],
     unlocks: ['region:5', 'disciple', 'school:summon', 'school:stealth'],
   },
   {
-    id: 5, name: '沼地', wall: '回復する敵', gap: 30, drain: 16, bossAt: 2700,
+    id: 5, name: '沼地', wall: '回復する敵', gap: 30, drain: 11, bossAt: 2700,
     enemy: { name: '沼の影', hp: 2000, hpStep: 70, atk: 40, atkEvery: 8, hits: 1 },
     boss: { name: '沼の主', hp: 150000, atk: 120, hits: 1 },
     drops: [{ kind: 'mithril', rank: 3 }, { kind: 'dragon', rank: 2 }, { kind: 'thunder', rank: 3 }, { kind: 'dragon', rank: 3 }],
     unlocks: ['region:6', 'split'],
   },
   {
-    id: 6, name: '魔王の城', wall: '属性と全部', gap: 30, drain: 32, bossAt: 3000,
+    id: 6, name: '魔王の城', wall: '属性と全部', gap: 30, drain: 22, bossAt: 3000,
     enemy: { name: '魔王の兵', hp: 7000, hpStep: 250, atk: 70, atkEvery: 8, hits: 1 },
     boss: { name: '魔王', hp: 630000, atk: 250, hits: 1 },
     drops: [{ kind: 'dragon', rank: 3 }, { kind: 'star', rank: 3 }, { kind: 'fire', rank: 4 }, { kind: 'star', rank: 4 }],

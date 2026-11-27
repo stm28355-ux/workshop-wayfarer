@@ -3,7 +3,7 @@
 // 遊び方（手）をいくつか決めて、地域1を決まった時間だけ回し、数を並べる。乱数がないので毎回同じ結果。
 
 import { createGame, advance, feed, moveItem, region } from '../src/core/game.js';
-import { TICKS_PER_SEC } from '../src/data/balance.js';
+import { TICKS_PER_SEC, HERO } from '../src/data/balance.js';
 import { rankValue } from '../src/core/rank.js';
 
 const minutes = Number(process.argv[2] ?? 15);
@@ -48,7 +48,7 @@ const policies = {
     if (m) return ['move', m.from, m.to];
     // ボスまで届く支度（歩く分と戦う分で、残りの歩数の1.6倍の刻み）が足りなければ支度、足りれば育てる
     const r = region(s.run.region);
-    const need = (r.bossAt - s.run.step) * 1.6 * r.drain;
+    const need = ((r.bossAt - s.run.step) / HERO.walk * 1.6 + 200) * r.drain; // ボス戦の20秒ぶんも見る
     const to = s.run.prep < need ? 'prep' : 'grow';
     const big = s.board.cells.findIndex((c) => c && c.rank >= 3);
     if (big >= 0) return ['feed', big, to];

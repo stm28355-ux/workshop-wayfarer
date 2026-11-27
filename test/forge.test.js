@@ -43,13 +43,18 @@ test('集中力が足りない叩き方は使えない', () => {
   assert.ok(strike(s, 'tap', 0));
 });
 
-test('火を足すは段の頭でだけ使え、1段戻る。冷えた後でも暗赤へ戻る', () => {
+test('火を足すはいつでも使え、1段熱くなってその段を最初から叩ける。冷えた後でも暗赤へ戻る', () => {
   let s = sword();
-  assert.equal(canFire(s), false, '灼熱では戻れない');
+  assert.equal(canFire(s), false, '灼熱より熱くはならない');
   s = strike(strike(strike(s, 'tap', 0), 'tap', 0), 'tap', 1);
-  assert.equal(canFire(s), true);
   s = strike(s, 'tap', 2);
-  assert.equal(canFire(s), false, '段の途中では使えない');
+  assert.equal(s.temp, 1);
+  assert.equal(s.left, 2);
+  assert.equal(canFire(s), true, '段の途中でも使える');
+  const hot = addFire(s);
+  assert.equal(hot.temp, 0);
+  assert.equal(hot.left, 3, 'その段を最初から');
+  assert.equal(hot.fire, 0);
   const cold = { ...sword(), temp: 3, left: 3, fire: 1 };
   assert.equal(isOver(cold), false, '火があれば終わらない');
   assert.equal(addFire(cold).temp, 2);

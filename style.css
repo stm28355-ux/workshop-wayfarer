@@ -189,6 +189,8 @@ dialog li { margin-bottom: 6px; }
 .temps { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .temp { display: inline-grid; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--quiet); font-size: 0.85rem; }
 .temp small { font-size: 0.7rem; }
+.temp .pips { font-size: 0.9rem; letter-spacing: 0.15em; color: var(--accent); }
+.temp-note { margin: 0 0 4px; color: var(--quiet); }
 .temp.past { opacity: 0.4; }
 .temp.now { color: var(--ink); border-color: var(--accent); }
 .temp.t0.now { background: rgb(226 98 63 / 0.35); }

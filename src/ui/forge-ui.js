@@ -199,19 +199,25 @@ export function createForgeUI({ get, set, log }) {
     const plan = planOf(s.gear.items, se.kind, se.slot, se.tier);
     const mode = plan.mode === 'new' ? '初めて' : plan.mode === 'up' ? '格上げ' : '加算';
     let h = `<p class="sess-title"><b>${gearName(se.kind, se.slot)} 格${se.tier}</b>（${mode}）</p>`;
-    // 温度：今の段と残り回数
+    // 温度：段ごとに叩ける回数を丸で見せる（●＝叩いた、○＝残り）。判定表 第5回 Q3
     h += '<div class="temps">' + TEMPS.map((t, i) => {
       const cls = i === se.temp ? 'now' : i < se.temp ? 'past' : '';
-      const left = i === se.temp ? `あと${se.left}回` : `${se.perLevel}回`;
-      return `<span class="temp t${i} ${cls}">${t.name}<small>×${t.mult}・${left}</small></span>`;
+      const used = i < se.temp ? se.perLevel : i === se.temp ? se.perLevel - se.left : 0;
+      const pips = '●'.repeat(used) + '○'.repeat(se.perLevel - used);
+      return `<span class="temp t${i} ${cls}">${t.name} ×${t.mult}<small class="pips">${pips}</small></span>`;
     }).join('') + `<span class="temp t3${se.temp > 2 ? ' now' : ''}">冷えた</span></div>`;
-    h += `<p class="num">集中力 <b>${se.conc}</b>　火 <b>${se.fire}</b>回　出来 <b>${sc.sum}</b>/${sc.max}（基本の${Math.round(sc.ratio * 100)}%）</p>`;
+    const tempNote = se.temp > 2
+      ? '冷えて叩けない。火を足すと暗赤に戻る'
+      : `あと${se.left}回叩くと${se.temp < 2 ? `${TEMPS[se.temp + 1].name}に下がる` : '冷えて叩けなくなる'}。火を足すといつでも1段熱くなり、その段を最初から叩ける`;
+    h += `<p class="small temp-note">${tempNote}</p>`;
+    const bests = se.values.filter((v, i) => cellQuality(v, se.targets[i]).q === 2).length;
+    h += `<p class="num">集中力 <b>${se.conc}</b>　火 <b>${se.fire}</b>回　◎ <b>${bests}</b>/${se.values.length}マス（全部◎で会心＝基本の${Math.round(GEAR.crit * 100)}%）<br>今の出来 ${sc.sum}/${sc.max}・基本の${Math.round(sc.ratio * 100)}%</p>`;
     // 叩き方
     h += '<div class="strikes">' + Object.entries(STRIKES).map(([id, st]) => {
       const ok = canStrike(se, id);
       return `<button type="button" class="opt${ui.strike === id ? ' sel' : ''}" data-act="strike" data-strike="${id}" ${ok ? '' : 'disabled'}>` +
         `${st.name}<small>${st.shape === 'one' ? '1マス' : '縦2マス'} ＋${strikeAmount(se, id)}・集中${st.cost}</small></button>`;
-    }).join('') + `<button type="button" class="opt" data-act="fire" ${canFire(se) ? '' : 'disabled'}>火を足す<small>段の頭で1段戻す</small></button></div>`;
+    }).join('') + `<button type="button" class="opt" data-act="fire" ${canFire(se) ? '' : 'disabled'}>火を足す<small>1段熱くして段を最初から</small></button></div>`;
     // 盤（叩く前の伸びを見せる）
     const pv = ui.aim !== null && canStrike(se, ui.strike) ? preview(se, ui.strike, ui.aim) : [];
     const gain = new Map(pv.map((p) => [p.index, p.amount]));

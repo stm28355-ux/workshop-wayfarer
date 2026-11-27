@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createGame, advance, feed, moveItem, chooseRegion, enemyAt, bossDrop, basePrep, region } from '../src/core/game.js';
 import { levelStats, xpToNext, gainXp } from '../src/core/hero.js';
 import { heroStats } from '../src/core/gear.js';
-import { PREP, BOARD, REGIONS } from '../src/data/balance.js';
+import { PREP, BOARD, REGIONS, HERO } from '../src/data/balance.js';
 
 // 強い勇者（死なない・支度が切れない）にした状態。
 function strong(level = 200) {
@@ -90,7 +90,7 @@ test('支度が切れたら帰り、3秒待ってから次の出発（支度は3
   const w = advance(r.state, PREP.waitTicks).state;
   assert.equal(w.run.step, 0);
   assert.equal(w.run.prep, basePrep(1));
-  assert.equal(advance(w, 1).state.run.step, 1);
+  assert.equal(advance(w, 1).state.run.step, HERO.walk, '1刻みに歩く速さだけ進む');
 });
 
 test('倒れたら支度の残りを失って帰る', () => {

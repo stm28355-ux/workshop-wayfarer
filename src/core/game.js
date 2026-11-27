@@ -73,7 +73,7 @@ export function createGame() {
     crafter: { cd: MERGE_CRAFTER.everyTicks },
     workshop: { arm: 0, speed: 0, widen: 0 },
     stats: {
-      departures: 1, picked: 0, overflow: 0, merges: 0, crafterMerges: 0, kills: 0, crafted: 0, autoCrafted: 0,
+      departures: 1, picked: 0, overflow: 0, merges: 0, crafterMerges: 0, kills: 0, crafted: 0, autoCrafted: 0, crits: 0,
       returns: { prep: 0, down: 0, boss: 0 }, firstBoss: {},
     },
   };
@@ -231,7 +231,7 @@ function tickOnce(s, events, locked) {
       }
     }
   } else {
-    run.step += 1;
+    run.step += HERO.walk;
     run.regenCd -= 1;
     if (run.regenCd <= 0) {
       run.hp = Math.min(hero.maxHp, run.hp + hero.regen);
@@ -359,6 +359,7 @@ function finishSession(s, auto = false) {
   s.forge.session = null;
   s.forge.fuel = null;
   s.stats.crafted += 1;
+  if (sc.crit && !auto) s.stats.crits = (s.stats.crits ?? 0) + 1;
   if (auto) s.stats.autoCrafted += 1;
   return { type: 'craft', auto, kind: sess.kind, slot: sess.slot, tier: sess.tier, mode: r.plan.mode, ...sc };
 }
