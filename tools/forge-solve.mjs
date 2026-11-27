@@ -87,6 +87,11 @@ export function solve(kind, slot, tier, conc, fire) {
             // 段の途中でやめる＝そこで仕上げる
             const s = sumOf(v, targets);
             if (s > best.sum) best = { sum: s, plan: steps };
+            // 段の途中で火を足す＝1段熱くして、その段を最初から
+            if (fire > 0 && temp > 0) {
+              const r = rec(v, temp - 1, conc - cost, fire - 1);
+              if (r.sum > best.sum) best = { sum: r.sum, plan: [...steps, 'fire', ...r.plan] };
+            }
           } else {
             const r = rec(v, temp + 1, conc - cost, fire);
             if (r.sum > best.sum || (r.sum === best.sum && steps.length + r.plan.length < best.plan.length)) {

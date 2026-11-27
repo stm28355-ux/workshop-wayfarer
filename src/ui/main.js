@@ -2,7 +2,7 @@
 import { APP_VERSION } from '../version.js';
 import { createGame, advance, feed, moveItem, chooseRegion, region, isOpen } from '../core/game.js';
 import { xpToNext } from '../core/hero.js';
-import { heroStats } from '../core/gear.js';
+import { heroStats, damageTaken } from '../core/gear.js';
 import { rankValue } from '../core/rank.js';
 import { TICKS_PER_SEC, PREP, KINDS } from '../data/balance.js';
 import { load, save, clear } from './save.js';
@@ -384,7 +384,9 @@ function render(now) {
     $('fight-name').textContent = f.boss ? `ボス：${reg.boss.name}` : `${reg.enemy.name}（${run.enemyIndex + 1}体目）`;
     $('enemy-meter').hidden = false;
     setBar('enemy-bar', f.hp / f.maxHp);
-    $('enemy-text').textContent = `${Math.max(0, Math.ceil(f.hp))}/${f.maxHp}　攻撃${f.atk}${f.enemyTicks < 10 ? `×${Math.round(10 / f.enemyTicks)}回/秒` : ''}`;
+    const hit = damageTaken(f.atk, heroStats(s).guard);
+    const guardNote = hit < f.atk ? `（盾で${Math.round(hit * 10) / 10}に）` : '';
+    $('enemy-text').textContent = `${Math.max(0, Math.ceil(f.hp))}/${f.maxHp}　攻撃${f.atk}${guardNote}${f.enemyTicks < 10 ? `×${Math.round(10 / f.enemyTicks)}回/秒` : ''}`;
   } else if (run.wait > 0) {
     $('fight-name').textContent = `村で支度している（あと${Math.ceil(run.wait / TICKS_PER_SEC)}秒で出発）`;
     $('enemy-meter').hidden = true;
@@ -430,7 +432,7 @@ function renderRecords() {
     ['倒れて帰った', `${st.returns.down}回`],
     ['支度が切れて帰った', `${st.returns.prep}回`],
   ];
-  if (isOpen(state, 'stage:forge')) rows.push(['打った（手で）', `${(st.crafted ?? 0) - (st.autoCrafted ?? 0)}回`]);
+  if (isOpen(state, 'stage:forge')) rows.push(['打った（手で）', `${(st.crafted ?? 0) - (st.autoCrafted ?? 0)}回（会心 ${st.crits ?? 0}）`]);
   if (st.autoCrafted) rows.push(['職人が打った', `${st.autoCrafted}回`]);
   if (st.crafterMerges) rows.push(['職人が合わせた', `${st.crafterMerges}回`]);
   for (const id of state.open.regions) {
