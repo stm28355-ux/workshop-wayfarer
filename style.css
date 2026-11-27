@@ -268,3 +268,40 @@ dialog li { margin-bottom: 6px; }
   .anv { min-height: 62px; padding: 4px; }
   .anv b { font-size: 1.1rem; }
 }
+
+/* 道場の試し（dojo.html） */
+.link-btn { display: inline-grid; place-items: center; min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); text-decoration: none; }
+.dojo { max-width: 1100px; margin: 0 auto; padding: 12px 16px 32px; display: grid; gap: 16px; }
+@media (min-width: 900px) { .dojo { grid-template-columns: 220px minmax(0, 1fr) 280px; align-items: start; } }
+.dojo > section { background: var(--panel); border-radius: 12px; padding: 12px 16px; }
+.dojo h2 { margin: 0 0 6px; font-size: 1.05rem; }
+.scroll-list { display: grid; gap: 6px; }
+.scroll-rule { margin: 0 0 8px; color: var(--quiet); font-size: 0.9rem; min-height: 1.5em; }
+.scroll-rule b { color: var(--accent); }
+.dojo-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 8px; }
+.dojo-bar .mode { margin-left: auto; display: inline-flex; gap: 4px; }
+.dojo-bar .mode button { min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: #1a1e24; cursor: pointer; }
+.dojo-bar .mode button[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.mine-board { display: grid; grid-template-columns: repeat(var(--w, 5), minmax(0, 64px)); gap: 4px; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.mc {
+  aspect-ratio: 1; min-height: 44px; border-radius: 8px; border: 1px solid var(--line); background: #313845; cursor: pointer;
+  display: grid; place-items: center; font-size: 1.25rem; font-weight: 700; padding: 0;
+}
+.mc.open { background: #1a1e24; cursor: default; }
+.mc.given { background: #20252d; }
+.mc.flag span { color: var(--accent); }
+.mc.wrong { background: rgb(232 138 106 / 0.35); border-color: var(--bad); }
+.mc.mine span { color: var(--bad); }
+.mc.glow { box-shadow: 0 0 0 2px var(--accent) inset; }
+.mc.glow-src { box-shadow: 0 0 0 3px var(--good) inset; }
+.mc .n1 { color: #8ab4f8; } .mc .n2 { color: #8fd18f; } .mc .n3 { color: #e88a6a; } .mc .n4 { color: #c58af9; }
+.mc .n5, .mc .n6, .mc .n7, .mc .n8 { color: #f2c76e; }
+.dojo-note { min-height: 1.5em; margin: 8px 0 0; font-size: 0.85rem; }
+.dojo-result { margin-top: 8px; padding: 8px 12px; border-radius: 8px; background: #1a1e24; border-left: 3px solid var(--good); }
+.dojo-help ul { padding-left: 1.2em; }
+@media (max-width: 600px) {
+  .dojo { padding: 8px; gap: 8px; }
+  .scroll-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .scroll-list .opt { font-size: 0.75rem; padding: 4px 6px; }
+  .dojo-bar .mode { margin-left: 0; }
+}
