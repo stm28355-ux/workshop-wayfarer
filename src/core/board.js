@@ -1,8 +1,8 @@
 // マージの盤（段1）。純粋な関数だけ。盤は { w, h, cells }、cells[y * w + x] は { kind, rank } か null。
-// 合わせ方は Farm Merge Valley と同じ形：
-// 手で物を動かしたとき、動かした先とつながった同じ物（種類とランクが同じ・上下左右）が3個以上なら合わせる。
+// 合わせ方（判定表 第2回 Q1）：同じ物（種類とランクが同じ）の上に重ねたときだけ合わせる。
+// 重ねた物と、重ねた先につながった同じ物（上下左右）を合わせて3個以上なら合わさる。
 // 5個以上なら5個を使って上のランク2個、3〜4個なら3個を使って上のランク1個（rank.js）。
-// 拾った物が盤に出たときは合わせない（5個そろうまで待つかは人が選ぶ）。
+// 空きマスに置いただけでは、隣に同じ物が並んでも合わさらない。拾った物が盤に出たときも合わせない。
 
 import { RANK_MAX, merge } from './rank.js';
 
@@ -61,16 +61,19 @@ export function groupAt(board, index) {
   return order;
 }
 
-// index のつながりを合わせる。できた物は index と、2個目は近い順で次のマスに置く。
-export function mergeAt(board, index) {
-  const item = board.cells[index];
-  if (!item || item.rank >= RANK_MAX) return { board, merged: null };
-  const group = groupAt(board, index);
-  if (group.length < 3) return { board, merged: null };
-  const used = group.length >= 5 ? 5 : 3;
-  const made = merge(item.rank, used);
+// from の物を同じ物の to に重ねたときに合わせる。重ねた物＋ to につながった同じ物が3個以上でなければ何もしない。
+// できた物は to と、2個目は to から近い順で次のマスに置く。from は空く。
+function dropOnSame(board, from, to) {
+  const item = board.cells[to];
+  if (item.rank >= RANK_MAX) return { board, merged: null };
   const next = copy(board);
-  const cells = group.slice(0, used);
+  next.cells[from] = null; // 持ち上げた物は数に入れ、元のマスは空く
+  const group = groupAt(next, to);
+  const count = group.length + 1;
+  if (count < 3) return { board, merged: null };
+  const used = count >= 5 ? 5 : 3;
+  const made = merge(item.rank, used);
+  const cells = group.slice(0, used - 1);
   for (const c of cells) next.cells[c] = null;
   for (let i = 0; i < made.count; i++) next.cells[cells[i]] = { kind: item.kind, rank: made.rank };
   return {
@@ -79,14 +82,18 @@ export function mergeAt(board, index) {
   };
 }
 
-// 手で物を動かす。空きマスなら移り、物があれば入れ替える。動かした先で3個以上つながれば合わせる。
+// 手で物を動かす。
+// 空きマスなら移るだけ（隣に同じ物が並んでも合わさらない）。
+// 同じ物の上なら重ねて合わせる（3個に足りなければ何もしない）。違う物の上なら入れ替える。
 export function move(board, from, to) {
   if (from === to || !board.cells[from]) return { board, merged: null };
+  const moving = board.cells[from];
+  const target = board.cells[to];
+  if (target && same(moving, target)) return dropOnSame(board, from, to);
   const next = copy(board);
-  const moving = next.cells[from];
-  next.cells[from] = next.cells[to];
+  next.cells[from] = target;
   next.cells[to] = moving;
-  return mergeAt(next, to);
+  return { board: next, merged: null };
 }
 
 // マスの物を取り出す（出口に入れるとき）。

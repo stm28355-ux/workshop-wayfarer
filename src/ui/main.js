@@ -138,6 +138,11 @@ window.addEventListener('pagehide', () => save(state, meta));
 // ---- 人の手 ----
 function doMove(from, to) {
   const r = moveItem(state, from, to);
+  const a = state.board.cells[from];
+  const b = state.board.cells[to];
+  if (!r.merged && a && b && a.kind === b.kind && a.rank === b.rank) {
+    log('重ねて3個以上にならないと合わさらない');
+  }
   state = r.state;
   selected = null;
   if (r.merged) {
@@ -374,13 +379,35 @@ function render(now) {
 
   const item = selected !== null ? s.board.cells[selected] : null;
   $('selected').textContent = item
-    ? `${itemName(item)}（価値${rankValue(item.rank)}）を選んでいる。出口か、動かす先を押す`
-    : '物をドラッグして合わせるか、出口へ入れる';
+    ? `${itemName(item)}（価値${rankValue(item.rank)}）を選んでいる。出口か、重ねる先・動かす先を押す`
+    : '同じ物の上に重ねて合わせるか、出口へ入れる';
 
   pruneRates();
   $('rate-pick').textContent = recent.pick.length;
   $('rate-merge').textContent = recent.merge.length;
   $('rate-over').textContent = recent.over.length;
+  renderRecords();
+}
+
+// 試すときの記録（判定表 第2回）：遊んだ時間・出発・倒れた・支度切れ・ボスを初めて倒した時間とレベル
+function renderRecords() {
+  const st = state.stats;
+  const rows = [
+    ['遊んだ時間', secs(state.tick)],
+    ['出発', `${st.departures}回`],
+    ['倒れて帰った', `${st.returns.down}回`],
+    ['支度が切れて帰った', `${st.returns.prep}回`],
+  ];
+  for (const id of state.open.regions) {
+    const fb = st.firstBoss?.[id];
+    if (fb || id === state.run.region) rows.push([`地域${id}のボス`, fb ? `${secs(fb.tick)}（Lv${fb.level}）` : 'まだ']);
+  }
+  const html = rows.map(([k, v]) => `<div><dt>${k}</dt><dd class="num">${v}</dd></div>`).join('');
+  const el = $('records');
+  if (el.dataset.key !== html) {
+    el.dataset.key = html;
+    el.innerHTML = html;
+  }
 }
 
 // 画面のまとめ（試すときに読む）

@@ -57,7 +57,7 @@ export function createGame() {
     run: null,
     board: createBoard(BOARD.w, BOARD.h),
     stock: { forge: {}, workshop: 0 },
-    stats: { departures: 1, picked: 0, overflow: 0, merges: 0, kills: 0, returns: { prep: 0, down: 0, boss: 0 } },
+    stats: { departures: 1, picked: 0, overflow: 0, merges: 0, kills: 0, returns: { prep: 0, down: 0, boss: 0 }, firstBoss: {} },
   };
   state.run = newRun(state, 1);
   return state;
@@ -127,6 +127,8 @@ function winFight(s, events) {
     pickUp(s, bossDrop(run.region), events);
     if (!s.cleared.includes(run.region)) {
       s.cleared.push(run.region);
+      // 試すときの記録（判定表 第2回）：初めて倒した刻みとレベル
+      s.stats.firstBoss = { ...(s.stats.firstBoss ?? {}), [run.region]: { tick: s.tick, level: s.hero.level } };
       for (const key of region(run.region).unlocks) applyUnlock(s, key, events);
     }
     goHome(s, 'boss', events);
