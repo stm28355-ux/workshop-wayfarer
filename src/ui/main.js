@@ -7,12 +7,14 @@ import { rankValue } from '../core/rank.js';
 import { TICKS_PER_SEC, PREP, KINDS } from '../data/balance.js';
 import { load, save, clear } from './save.js';
 import { createForgeUI, craftText } from './forge-ui.js';
+import { createDojoUI } from './dojo-ui.js';
 
 const params = new URLSearchParams(location.search);
 const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
 // 試すとき：?test=open は地域1のボスを倒した後（素材つき）、?test=all は地域3のボスの後（職人が2人とも来ている）。
 // 試すときの保存は本番と別。
-const TEST = ['open', 'all'].includes(params.get('test')) ? params.get('test') : null;
+// ?test=dojo は地域2のボスの後（道場が開いている）。
+const TEST = ['open', 'dojo', 'all'].includes(params.get('test')) ? params.get('test') : null;
 const SLOT = TEST ? `test-${TEST}` : undefined;
 const TICK_MS = 1000 / TICKS_PER_SEC;
 const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
@@ -33,7 +35,7 @@ if (loaded) {
 
 function testState(mode) {
   const s = createGame();
-  const upto = mode === 'all' ? 3 : 1;
+  const upto = { open: 1, dojo: 2, all: 3 }[mode];
   for (let id = 1; id <= upto; id++) {
     s.cleared.push(id);
     for (const key of region(id).unlocks) {
@@ -116,7 +118,7 @@ function unlockName(key) {
   if (key === 'crafter:merge') return 'マージの職人';
   if (key === 'crafter:forge') return '打ち分けの職人';
   if (key === 'stage:forge') return '段2 打ち分け';
-  if (key === 'stage:dojo') return '段3 道場（工程4から）';
+  if (key === 'stage:dojo') return '段3 道場';
   return null;
 }
 
@@ -410,6 +412,7 @@ function render(now) {
   renderExits();
   renderTabs();
   forgeUI.render();
+  dojoUI.render();
 
   const item = selected !== null ? s.board.cells[selected] : null;
   $('selected').textContent = item
@@ -435,6 +438,7 @@ function renderRecords() {
   if (isOpen(state, 'stage:forge')) rows.push(['打った（手で）', `${(st.crafted ?? 0) - (st.autoCrafted ?? 0)}回（会心 ${st.crits ?? 0}）`]);
   if (st.autoCrafted) rows.push(['職人が打った', `${st.autoCrafted}回`]);
   if (st.crafterMerges) rows.push(['職人が合わせた', `${st.crafterMerges}回`]);
+  if (isOpen(state, 'stage:dojo')) rows.push(['解いた巻物', `${st.scrolls ?? 0}枚`]);
   for (const id of state.open.regions) {
     const fb = st.firstBoss?.[id];
     if (fb || id === state.run.region) rows.push([`地域${id}のボス`, fb ? `${secs(fb.tick)}（Lv${fb.level}）` : 'まだ']);
@@ -466,23 +470,46 @@ window.describeUI = () => ({
   session: state.forge.session && { kind: state.forge.session.kind, slot: state.forge.session.slot, values: state.forge.session.values, temp: state.forge.session.temp, conc: state.forge.session.conc },
   hero: heroStats(state),
   tab,
+  mid,
+  dojo: state.dojo,
 });
 
 // 段のタブ（スマホ。判定表 第3回 F1）
+// PC は真ん中の列を打ち分けと道場で切り替える（判定表 第6回 E4）。スマホは段1〜3のタブ。
 let tab = '1';
+let mid = 'forge';
 function renderTabs() {
-  const open = isOpen(state, 'stage:forge');
-  $('stage-tabs').hidden = !open;
-  const t = open ? tab : '1';
-  if ($('stage').dataset.tab !== t) $('stage').dataset.tab = t;
+  const forgeOpen = isOpen(state, 'stage:forge');
+  const dojoOpen = isOpen(state, 'stage:dojo');
+  $('stage-tabs').hidden = !forgeOpen;
+  $('tab-3').hidden = !dojoOpen;
+  let t = forgeOpen ? tab : '1';
+  if (t === '3' && !dojoOpen) t = '1';
+  const m = dojoOpen ? mid : 'forge';
+  const st = $('stage');
+  if (st.dataset.tab !== t) st.dataset.tab = t;
+  if (st.dataset.mid !== m) st.dataset.mid = m;
   for (const b of document.querySelectorAll('#stage-tabs [data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === t));
+  document.querySelector('.forge-side .mid-go').hidden = !dojoOpen;
 }
 $('stage-tabs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tab]');
-  if (b) tab = b.dataset.tab;
+  if (!b) return;
+  tab = b.dataset.tab;
+  if (tab === '2') mid = 'forge';
+  if (tab === '3') mid = 'dojo';
+  render(performance.now());
 });
+for (const b of document.querySelectorAll('.mid-go')) {
+  b.addEventListener('click', () => {
+    mid = b.dataset.mid;
+    tab = mid === 'dojo' ? '3' : '2';
+    render(performance.now());
+  });
+}
 
 const forgeUI = createForgeUI({ get: () => state, set: (s) => { state = s; }, log });
+const dojoUI = createDojoUI({ get: () => state, set: (s) => { state = s; }, log });
 
 $('version').textContent = APP_VERSION;
 $('speed-note').textContent = (SPEED !== 1 ? `　速さ ×${SPEED}` : '') + (TEST ? `　試す：${TEST}` : '');

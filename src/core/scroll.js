@@ -285,10 +285,18 @@ export function difficulty(result) {
 }
 
 // ───────── 作る ─────────
-// spec：{ w, h, count, rules, seed, maxLevel?（使ってよい一番難しい手）, prune?（開いているマスを減らすか） }
+// spec：{ w, h, count, rules, seed, maxLevel?（使ってよい一番難しい手）, maxGlobal?（盤全体の手は何回まで。最初の手には使わない）,
+//         prune?（開いているマスを減らすか） }
 export function generate(spec) {
   const rand = rng(spec.seed);
   const maxLevel = spec.maxLevel ?? 3;
+  const maxGlobal = spec.maxGlobal ?? Infinity;
+  const good = (r) => {
+    if (!r.solved) return false;
+    const d = difficulty(r);
+    if (d.max > maxLevel || d.by[3] > maxGlobal) return false;
+    return maxGlobal === Infinity || !r.steps.length || r.steps[0].level < 3;
+  };
   for (let attempt = 0; attempt < 60; attempt++) {
     const mines = placeMines(spec.w, spec.h, spec.rules, spec.count, rand);
     if (!mines) continue;
@@ -297,20 +305,20 @@ export function generate(spec) {
     // 解けるまで開いているマスを足す（詰まった所のまだ分からない安全なマスから選ぶ）
     p.shown.push(safeCells[0]);
     let r = solve(p);
-    while (!(r.solved && difficulty(r).max <= maxLevel)) {
+    while (!good(r)) {
       const stuck = safeCells.filter((i) => r.know[i] === -1 && !p.shown.includes(i));
       if (!stuck.length) break;
       p.shown.push(stuck[0]);
       r = solve(p);
     }
-    if (!r.solved || difficulty(r).max > maxLevel) continue;
-    // 要らない開いたマスを除く（解けて、難しさが maxLevel のままなら除く）
+    if (!good(r)) continue;
+    // 要らない開いたマスを除く（解けて、難しさの条件を守るなら除く）
     if (spec.prune !== false) {
       for (const i of shuffle(p.shown, rand)) {
         if (p.shown.length <= 1) break;
         const q = { ...p, shown: p.shown.filter((j) => j !== i) };
         const rq = solve(q);
-        if (rq.solved && difficulty(rq).max <= maxLevel) { p.shown = q.shown; r = rq; }
+        if (good(rq)) { p.shown = q.shown; r = rq; }
       }
     }
     p.shown.sort((a, b) => a - b);

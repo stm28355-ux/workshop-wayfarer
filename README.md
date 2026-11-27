@@ -9,7 +9,7 @@
 
 https://stm28355-ux.github.io/workshop-wayfarer/
 
-いまは試作（工程3）：冒険・マージの盤・打ち分け（装備作り）・職人・工房。`?speed=4` で4倍速、`?test=open` で地域1のボスを倒した後から（素材つき）、`?test=all` で地域3のボスの後から（職人が2人とも来ている）。試すときの保存は本番と別。道場の巻物の試しは https://stm28355-ux.github.io/workshop-wayfarer/dojo.html 。
+いまは試作（工程4）：冒険・マージの盤・打ち分け（装備作り）・職人・工房・道場（守りの流派）。`?speed=4` で4倍速、`?test=open` で地域1のボスを倒した後から（素材つき）、`?test=dojo` で地域2のボスの後から（道場が開いている）、`?test=all` で地域3のボスの後から（職人が2人とも来ている）。試すときの保存は本番と別。道場の巻物の試しは https://stm28355-ux.github.io/workshop-wayfarer/dojo.html 。
 
 ## 開発
 

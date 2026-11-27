@@ -4,6 +4,7 @@
 
 import { GEAR, GEAR_KINDS, GEAR_BASE } from '../data/forge.js';
 import { HERO, LEVEL } from '../data/balance.js';
+import { nodeStats } from './dojo.js';
 
 export function itemKey(kind, slot) {
   return `${kind}:${slot}`;
@@ -85,14 +86,18 @@ export function heroStats(state) {
     if (st === 'atk') atkPct += mainValue(it);
     else if (st === 'regen') regenPct += mainValue(it);
   }
+  // 道場の小さい節（判定表 第6回 D2）
+  const tree = nodeStats(state);
   return {
-    atk: (HERO.baseAtk + atkAdd) * m * (1 + atkPct),
-    maxHp: (HERO.baseHp + hpAdd) * m,
-    attackTicks,
+    atk: (HERO.baseAtk + atkAdd) * m * (1 + atkPct + tree.atk),
+    maxHp: (HERO.baseHp + hpAdd) * m * (1 + tree.hp),
+    attackTicks: attackTicks / (1 + tree.speed),
     guard,
-    regen: HERO.regen * m * (1 + regenPct),
+    taken: Math.max(0.1, 1 - tree.taken),
+    regen: HERO.regen * m * (1 + regenPct + tree.regen),
     atkPct,
     regenPct,
+    tree,
   };
 }
 
