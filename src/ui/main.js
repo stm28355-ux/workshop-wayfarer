@@ -1,14 +1,19 @@
-// 試作画面（工程2）：地域1の冒険とマージの盤。ルールは src/core の関数を呼ぶだけ。
+// 試作画面（工程3）：冒険・マージの盤・打ち分け・工房。ルールは src/core の関数を呼ぶだけ。
 import { APP_VERSION } from '../version.js';
-import { createGame, advance, feed, moveItem, chooseRegion, region } from '../core/game.js';
-import { levelStats, xpToNext } from '../core/hero.js';
+import { createGame, advance, feed, moveItem, chooseRegion, region, isOpen } from '../core/game.js';
+import { xpToNext } from '../core/hero.js';
+import { heroStats } from '../core/gear.js';
 import { rankValue } from '../core/rank.js';
-import { TICKS_PER_SEC, PREP, REGIONS, KINDS } from '../data/balance.js';
+import { TICKS_PER_SEC, PREP, KINDS } from '../data/balance.js';
 import { load, save, clear } from './save.js';
+import { createForgeUI, craftText } from './forge-ui.js';
 
 const params = new URLSearchParams(location.search);
 const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
-const TEST_OPEN = params.get('test') === 'open';
+// 試すとき：?test=open は地域1のボスを倒した後（素材つき）、?test=all は地域3のボスの後（職人が2人とも来ている）。
+// 試すときの保存は本番と別。
+const TEST = ['open', 'all'].includes(params.get('test')) ? params.get('test') : null;
+const SLOT = TEST ? `test-${TEST}` : undefined;
 const TICK_MS = 1000 / TICKS_PER_SEC;
 const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
 
@@ -17,19 +22,32 @@ const $ = (id) => document.getElementById(id);
 // ---- 状態 ----
 let state;
 let meta; // 画面だけの記録：ログ・地域ごとの一番遠く
-const loaded = load();
+const loaded = load(SLOT);
 if (loaded) {
   state = loaded.state;
   meta = { log: [], best: {}, ...loaded.meta };
 } else {
-  state = createGame();
+  state = TEST ? testState(TEST) : createGame();
   meta = { log: [], best: {} };
 }
-if (TEST_OPEN) openAll(state);
 
-function openAll(s) {
-  s.open.regions = REGIONS.map((r) => r.id);
-  if (!s.open.exits.includes('workshop')) s.open.exits.push('workshop');
+function testState(mode) {
+  const s = createGame();
+  const upto = mode === 'all' ? 3 : 1;
+  for (let id = 1; id <= upto; id++) {
+    s.cleared.push(id);
+    for (const key of region(id).unlocks) {
+      const [what, arg] = key.split(':');
+      if (what === 'region') s.open.regions.push(Number(arg));
+      else if (what === 'exit') s.open.exits.push(arg);
+      else s.open.unlocks.push(key);
+    }
+  }
+  s.hero.level = mode === 'all' ? 11 : 8;
+  s.stock.forge = mode === 'all' ? { iron: 600, copper: 600, fire: 200, stone: 200 } : { iron: 150, copper: 60, fire: 40, stone: 30 };
+  s.stock.workshop = mode === 'all' ? 300 : 60;
+  s.run.hp = heroStats(s).maxHp;
+  return s;
 }
 
 let selected = null; // 選んでいるマス
@@ -68,9 +86,15 @@ function handle(events) {
     } else if (e.type === 'unlock') {
       const name = unlockName(e.key);
       if (name) log(`${name}が開いた`, 'good');
+    } else if (e.type === 'crafterMerge') {
+      recent.merge.push(state.tick);
+      const until = performance.now() + 450;
+      for (const i of e.merged.at) flashes.set(i, until);
+    } else if (e.type === 'craft' && e.auto) {
+      log(craftText(e));
     } else if (e.type === 'return') {
       meta.best[e.region] = Math.max(meta.best[e.region] ?? 0, e.step);
-      if (e.reason === 'prep') log(`支度が切れて村へ帰った（${e.step}歩）。すぐ出発`);
+      if (e.reason === 'prep') log(`支度が切れて村へ帰った（${e.step}歩）。3秒後に出発`);
       else if (e.reason === 'down') log(`倒れて村へ帰った（${e.step}歩）。支度の残りは失った`, 'bad');
     }
   }
@@ -89,8 +113,10 @@ function unlockName(key) {
   const [what, arg] = key.split(':');
   if (what === 'region') return `地域${arg}「${region(Number(arg)).name}」`;
   if (key === 'exit:workshop') return '工房の出口';
-  if (key === 'crafter:merge') return 'マージの職人（工程6から）';
-  if (key === 'stage:forge') return '段2 打ち分け（工程3から）';
+  if (key === 'crafter:merge') return 'マージの職人';
+  if (key === 'crafter:forge') return '打ち分けの職人';
+  if (key === 'stage:forge') return '段2 打ち分け';
+  if (key === 'stage:dojo') return '段3 道場（工程4から）';
   return null;
 }
 
@@ -108,13 +134,14 @@ function frame(now) {
     const n = Math.floor(acc / TICK_MS);
     if (n > 0) {
       acc -= n * TICK_MS;
-      const r = advance(state, n);
+      const locked = [selected, drag?.from].filter((x) => x !== null && x !== undefined);
+      const r = advance(state, n, { locked });
       state = r.state;
       handle(r.events);
     }
   }
   if (now > saveAt) {
-    save(state, meta);
+    save(state, meta, SLOT);
     saveAt = now + 5000;
   }
   render(now);
@@ -129,11 +156,11 @@ function startLoop() {
 }
 function stopLoop() {
   loopOn = false;
-  save(state, meta);
+  save(state, meta, SLOT);
 }
 // 閉じている間・裏のタブの間は止まる（判定表 第1回 C4）
 document.addEventListener('visibilitychange', () => (document.hidden ? stopLoop() : startLoop()));
-window.addEventListener('pagehide', () => save(state, meta));
+window.addEventListener('pagehide', () => save(state, meta, SLOT));
 
 // ---- 人の手 ----
 function doMove(from, to) {
@@ -252,9 +279,8 @@ $('btn-pause').addEventListener('click', () => {
 $('btn-help').addEventListener('click', () => $('help').showModal());
 $('btn-reset').addEventListener('click', () => {
   if (!confirm('はじめからにしますか？（今の記録は消えます）')) return;
-  clear();
-  state = createGame();
-  if (TEST_OPEN) openAll(state);
+  clear(SLOT);
+  state = TEST ? testState(TEST) : createGame();
   meta = { log: [], best: {} };
   selected = null;
   for (const k of Object.keys(recent)) recent[k] = [];
@@ -335,13 +361,13 @@ function render(now) {
   const s = state;
   const run = s.run;
   const reg = region(run.region);
-  const { atk, maxHp } = levelStats(s.hero.level);
+  const { atk, maxHp, attackTicks } = heroStats(s);
 
   renderRegions();
   $('region-note').textContent = s.nextRegion !== run.region ? `（次は ${region(s.nextRegion).name}）` : '';
-  $('hero-level').textContent = `勇者 Lv${s.hero.level}　攻撃${atk}`;
+  $('hero-level').textContent = `勇者 Lv${s.hero.level}　攻撃${Math.round(atk)}${attackTicks !== 10 ? `（${attackTicks / TICKS_PER_SEC}秒に1回）` : ''}`;
   setBar('hp-bar', run.hp / maxHp);
-  $('hp-text').textContent = `HP ${run.hp}/${maxHp}`;
+  $('hp-text').textContent = `HP ${Math.max(0, Math.ceil(run.hp))}/${Math.round(maxHp)}`;
   $('xp-text').textContent = `経験 ${s.hero.xp}/${xpToNext(s.hero.level)}`;
 
   const prepTicks = run.prep / reg.drain;
@@ -358,7 +384,11 @@ function render(now) {
     $('fight-name').textContent = f.boss ? `ボス：${reg.boss.name}` : `${reg.enemy.name}（${run.enemyIndex + 1}体目）`;
     $('enemy-meter').hidden = false;
     setBar('enemy-bar', f.hp / f.maxHp);
-    $('enemy-text').textContent = `${Math.max(0, f.hp)}/${f.maxHp}　攻撃${f.atk}`;
+    $('enemy-text').textContent = `${Math.max(0, Math.ceil(f.hp))}/${f.maxHp}　攻撃${f.atk}${f.enemyTicks < 10 ? `×${Math.round(10 / f.enemyTicks)}回/秒` : ''}`;
+  } else if (run.wait > 0) {
+    $('fight-name').textContent = `村で支度している（あと${Math.ceil(run.wait / TICKS_PER_SEC)}秒で出発）`;
+    $('enemy-meter').hidden = true;
+    $('enemy-text').textContent = '';
   } else {
     $('fight-name').textContent = `歩いている（次の敵まで ${Math.max(0, run.nextEnemyAt - run.step)}歩）`;
     $('enemy-meter').hidden = true;
@@ -376,6 +406,8 @@ function render(now) {
 
   renderBoard(now);
   renderExits();
+  renderTabs();
+  forgeUI.render();
 
   const item = selected !== null ? s.board.cells[selected] : null;
   $('selected').textContent = item
@@ -398,6 +430,9 @@ function renderRecords() {
     ['倒れて帰った', `${st.returns.down}回`],
     ['支度が切れて帰った', `${st.returns.prep}回`],
   ];
+  if (isOpen(state, 'stage:forge')) rows.push(['打った（手で）', `${(st.crafted ?? 0) - (st.autoCrafted ?? 0)}回`]);
+  if (st.autoCrafted) rows.push(['職人が打った', `${st.autoCrafted}回`]);
+  if (st.crafterMerges) rows.push(['職人が合わせた', `${st.crafterMerges}回`]);
   for (const id of state.open.regions) {
     const fb = st.firstBoss?.[id];
     if (fb || id === state.run.region) rows.push([`地域${id}のボス`, fb ? `${secs(fb.tick)}（Lv${fb.level}）` : 'まだ']);
@@ -423,8 +458,31 @@ window.describeUI = () => ({
   exits: state.open.exits,
   cleared: state.cleared,
   log: meta.log.map((l) => l.text),
+  stock: state.stock,
+  gear: Object.fromEntries(Object.entries(state.gear.items).map(([k, it]) => [k, `格${it.tier} q${Math.round(it.q * 100)} +${Math.round(it.extra * 10) / 10}`])),
+  equip: state.gear.equip,
+  session: state.forge.session && { kind: state.forge.session.kind, slot: state.forge.session.slot, values: state.forge.session.values, temp: state.forge.session.temp, conc: state.forge.session.conc },
+  hero: heroStats(state),
+  tab,
 });
 
+// 段のタブ（スマホ。判定表 第3回 F1）
+let tab = '1';
+function renderTabs() {
+  const open = isOpen(state, 'stage:forge');
+  $('stage-tabs').hidden = !open;
+  const t = open ? tab : '1';
+  if ($('stage').dataset.tab !== t) $('stage').dataset.tab = t;
+  for (const b of document.querySelectorAll('#stage-tabs [data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === t));
+}
+$('stage-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]');
+  if (b) tab = b.dataset.tab;
+});
+
+const forgeUI = createForgeUI({ get: () => state, set: (s) => { state = s; }, log });
+
 $('version').textContent = APP_VERSION;
-$('speed-note').textContent = SPEED !== 1 ? `　速さ ×${SPEED}` : '';
+$('speed-note').textContent = (SPEED !== 1 ? `　速さ ×${SPEED}` : '') + (TEST ? `　試す：${TEST}` : '');
+render(performance.now()); // 最初のコマを待たずに一度描く
 startLoop();
