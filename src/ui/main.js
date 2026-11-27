@@ -430,6 +430,9 @@ function renderRecords() {
     ['倒れて帰った', `${st.returns.down}回`],
     ['支度が切れて帰った', `${st.returns.prep}回`],
   ];
+  if (isOpen(state, 'stage:forge')) rows.push(['打った（手で）', `${(st.crafted ?? 0) - (st.autoCrafted ?? 0)}回`]);
+  if (st.autoCrafted) rows.push(['職人が打った', `${st.autoCrafted}回`]);
+  if (st.crafterMerges) rows.push(['職人が合わせた', `${st.crafterMerges}回`]);
   for (const id of state.open.regions) {
     const fb = st.firstBoss?.[id];
     if (fb || id === state.run.region) rows.push([`地域${id}のボス`, fb ? `${secs(fb.tick)}（Lv${fb.level}）` : 'まだ']);
