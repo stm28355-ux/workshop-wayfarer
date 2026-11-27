@@ -1,9 +1,15 @@
 :root {
   --bg: #1d2128;
+  --panel: #262b34;
   --ink: #f1ede4;
   --quiet: #a9a59b;
   --line: #3a404c;
   --accent: #e0a85a;
+  --good: #8fd18f;
+  --bad: #e88a6a;
+  --hp: #d9645a;
+  --prep: #e0a85a;
+  --enemy: #b98ad9;
 }
 
 * { box-sizing: border-box; }
@@ -13,23 +19,143 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: system-ui, "Hiragino Sans", "Yu Gothic UI", sans-serif;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
-#app {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 24px 16px 48px;
+button { font: inherit; color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+.quiet { color: var(--quiet); }
+.strong { font-weight: 600; }
+
+.top {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+  max-width: 1100px; margin: 0 auto; padding: 12px 16px 0;
 }
+.top h1 { margin: 0; font-size: 1.4rem; letter-spacing: 0.04em; }
+.tag { color: var(--quiet); font-size: 0.85rem; }
+.tools { margin-left: auto; display: flex; gap: 8px; }
+.tools button, dialog button {
+  min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); cursor: pointer;
+}
+.tools button[aria-pressed="true"] { border-color: var(--accent); }
 
-h1 { margin: 0 0 8px; font-size: 1.8rem; letter-spacing: 0.04em; }
-.lead { margin: 0 0 4px; }
-.note, .version { color: var(--quiet); font-size: 0.9rem; }
+#app { max-width: 1100px; margin: 0 auto; padding: 12px 16px 32px; display: grid; gap: 16px; }
 
-.ranks { border-collapse: collapse; margin: 16px 0 8px; min-width: 200px; }
-.ranks caption { text-align: left; color: var(--quiet); font-size: 0.9rem; padding-bottom: 4px; }
-.ranks th, .ranks td { border-bottom: 1px solid var(--line); padding: 4px 16px 4px 0; text-align: right; }
-.ranks th:first-child, .ranks td:first-child { text-align: left; }
+/* 冒険の帯 */
+.band { background: var(--panel); border-radius: 12px; padding: 12px 16px; display: grid; gap: 8px; }
+.row { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; min-height: 28px; }
+.label { width: 2.5em; color: var(--quiet); }
+.region select { min-height: 36px; margin-left: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; }
+.meter-wrap { display: inline-flex; align-items: center; gap: 8px; }
+.meter { position: relative; display: inline-block; height: 12px; border-radius: 6px; background: #14171c; overflow: hidden; flex: 1; min-width: 120px; }
+.meter > span { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 6px; }
+.meter.hp { width: 160px; flex: none; }
+.meter.hp > span { background: var(--hp); }
+.meter.prep > span { background: var(--prep); }
+.meter.enemy > span { background: var(--enemy); }
+.meter[hidden] { visibility: hidden; display: inline-block; }
+#prep-text, #road-text, #enemy-text { min-width: 9em; }
+#hp-text { min-width: 6.5em; }
 
-.merges { padding-left: 20px; }
-.merges span { color: var(--accent); font-weight: 600; }
+.road { position: relative; flex: 1; min-width: 160px; height: 16px; border-bottom: 2px dashed var(--line); }
+.road-hero, .road-best { position: absolute; bottom: -7px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; }
+.road-hero { background: var(--accent); transition: left 0.1s linear; }
+.road-best { background: transparent; border: 2px solid var(--quiet); opacity: 0.7; }
+.road-boss { position: absolute; right: -6px; bottom: -10px; color: var(--bad); font-size: 14px; }
+
+.fight-row { min-height: 28px; }
+.fight-name { min-width: 15em; }
+
+.log { list-style: none; margin: 0; padding: 8px 0 0; border-top: 1px solid var(--line); display: grid; gap: 2px; font-size: 0.9rem; }
+.log li { min-height: 1.5em; color: var(--quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log li:first-child { color: var(--ink); }
+.log li.good { color: var(--good); }
+.log li.bad { color: var(--bad); }
+
+/* 段1 */
+.stage { display: grid; gap: 16px; }
+@media (min-width: 760px) { .stage { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: start; } }
+.stage h2 { margin: 0 0 8px; font-size: 1rem; color: var(--quiet); font-weight: 600; }
+.board-side, .exit-side { background: var(--panel); border-radius: 12px; padding: 12px 16px; }
+
+.board {
+  display: grid; grid-template-columns: repeat(var(--w, 5), minmax(0, 1fr)); gap: 6px;
+  max-width: 460px; touch-action: none; user-select: none;
+}
+.cell {
+  aspect-ratio: 1; border: 1px solid var(--line); border-radius: 10px; background: #1a1e24;
+  padding: 0; cursor: pointer; display: grid; place-items: center; min-height: 44px;
+}
+.cell.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.cell.hover { border-color: var(--ink); }
+.cell.flash { animation: flash 0.45s ease-out; }
+@keyframes flash { from { background: rgb(224 168 90 / 0.6); } to { background: #1a1e24; } }
+
+.item {
+  position: relative; display: grid; place-items: center; width: 78%; height: 78%; border-radius: 10px;
+  background: color-mix(in srgb, var(--c) 30%, #1a1e24); border: 2px solid var(--c); pointer-events: none;
+}
+.item b { font-size: clamp(14px, 3.2vw, 22px); font-weight: 700; color: var(--ink); }
+.item i {
+  position: absolute; right: -6px; bottom: -6px; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px;
+  background: var(--c); color: #14171c; font-style: normal; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center;
+}
+.item.r2 { background: color-mix(in srgb, var(--c) 45%, #1a1e24); }
+.item.r3 { background: color-mix(in srgb, var(--c) 60%, #1a1e24); }
+.item.r4, .item.r5, .item.r6, .item.r7 { background: color-mix(in srgb, var(--c) 75%, #1a1e24); box-shadow: 0 0 10px var(--c); }
+
+.selected { min-height: 3em; margin: 8px 0 0; color: var(--quiet); font-size: 0.9rem; }
+
+.exits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.exit {
+  display: grid; gap: 2px; text-align: left; min-height: 76px; padding: 8px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: #1a1e24; cursor: pointer;
+}
+.exit.hover { border-color: var(--accent); }
+.exit.locked { opacity: 0.5; cursor: not-allowed; }
+.exit-name { font-weight: 600; }
+.exit-sub { color: var(--quiet); font-size: 0.85rem; }
+.exit-gain { color: var(--accent); font-size: 0.9rem; min-height: 1.35em; }
+
+.rates { margin: 12px 0 0; font-size: 0.9rem; color: var(--quiet); }
+.rates b { color: var(--ink); }
+.version { margin: 8px 0 0; color: var(--quiet); font-size: 0.8rem; }
+
+.ghost { position: fixed; left: 0; top: 0; width: 56px; height: 56px; pointer-events: none; z-index: 10; display: grid; place-items: center; }
+.ghost[hidden] { display: none; }
+.ghost .item { width: 100%; height: 100%; opacity: 0.9; }
+
+dialog { max-width: 560px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; }
+dialog::backdrop { background: rgb(0 0 0 / 0.5); }
+dialog h2 { margin-top: 0; }
+dialog li { margin-bottom: 6px; }
+
+@media (max-width: 600px) {
+  /* スマホ：冒険の帯を詰めて、盤と出口を1画面に入れる */
+  .top { padding-top: 8px; }
+  .top h1 { font-size: 1.1rem; }
+  .tag { display: none; }
+  .tools button { min-height: 36px; padding: 0 10px; font-size: 0.85rem; }
+  #app { padding: 8px 8px 24px; gap: 8px; }
+  .band { padding: 8px 10px; gap: 4px; font-size: 0.85rem; }
+  .row { gap: 4px 8px; min-height: 24px; flex-wrap: nowrap; }
+  .hero-row { flex-wrap: wrap; }
+  .region select { min-height: 32px; }
+  .meter { min-width: 0; height: 10px; }
+  .meter.hp { width: 80px; }
+  #xp-text { display: none; }
+  #prep-text, #road-text, #enemy-text, #hp-text { min-width: 0; white-space: nowrap; }
+  .road { min-width: 0; }
+  .fight-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+  .log { font-size: 0.8rem; padding-top: 4px; }
+  .log li:nth-child(n + 3) { display: none; }
+  .board-side, .exit-side { padding: 8px 10px; }
+  .stage h2 { display: none; }
+  .selected { min-height: 2.6em; font-size: 0.8rem; margin-top: 6px; }
+  .exits { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .exit { min-height: 64px; padding: 6px; font-size: 0.8rem; }
+  .exit-sub { font-size: 0.7rem; }
+  .exit-gain { font-size: 0.75rem; }
+  .rates { font-size: 0.8rem; margin-top: 8px; }
+}
