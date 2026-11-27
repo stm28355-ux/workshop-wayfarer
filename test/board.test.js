@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createBoard, place, move, mergeAt, groupAt, takeAt, widen, emptyCount } from '../src/core/board.js';
+import { createBoard, place, move, groupAt, takeAt, widen, emptyCount } from '../src/core/board.js';
 
 const I1 = { kind: 'iron', rank: 1 };
 const F1 = { kind: 'fire', rank: 1 };
@@ -42,57 +42,70 @@ test('拾って3個そろっても勝手には合わせない', () => {
   assert.deepEqual(show(b), ['iii..']);
 });
 
-test('動かした先で3個つながると、動かした先に上のランク1個', () => {
+test('並べただけでは合わさらない（判定表 第2回 Q1）', () => {
   const b = board(['ii.', '..i']);
   const r = move(b, 5, 2);
-  assert.deepEqual(show(r.board), ['..I', '...']);
+  assert.equal(r.merged, null);
+  assert.deepEqual(show(r.board), ['iii', '...']);
+});
+
+test('2個つながった所に重ねると、重ねた先に上のランク1個。元のマスは空く', () => {
+  const b = board(['ii.', '..i']);
+  const r = move(b, 5, 1);
   assert.equal(r.merged.used, 3);
   assert.equal(r.merged.made, 1);
+  assert.deepEqual(r.merged.at, [1]);
+  assert.deepEqual(show(r.board), ['.I.', '...']);
 });
 
-test('5個つながると上のランク2個（動かした先と、その次に近いマス）', () => {
+test('4個つながった所に重ねると5個で上のランク2個（重ねた先と、その次に近いマス）', () => {
   const b = board(['iiii.', '....i']);
-  const r = move(b, 9, 4);
+  const r = move(b, 9, 3);
   assert.equal(r.merged.used, 5);
   assert.equal(r.merged.made, 2);
-  assert.deepEqual(r.merged.at, [4, 3]);
-  assert.deepEqual(show(r.board), ['...II', '.....']);
+  assert.deepEqual(r.merged.at, [3, 2]);
+  assert.deepEqual(show(r.board), ['..II.', '.....']);
 });
 
-test('4個は3個だけ使い、1個残る', () => {
+test('3個つながった所に重ねると4個：3個だけ使い、1個残る', () => {
   const b = board(['iii.', '...i']);
-  const r = move(b, 7, 3);
+  const r = move(b, 7, 2);
   assert.equal(r.merged.used, 3);
   assert.equal(r.board.cells.filter((c) => c && c.rank === 1).length, 1);
   assert.equal(r.board.cells.filter((c) => c && c.rank === 2).length, 1);
 });
 
-test('違う種類は合わない', () => {
-  const b = board(['ii.', 'f..']);
-  const r = move(b, 3, 2);
+test('1個だけの所に重ねても（2個にしかならず）何も起きない', () => {
+  const b = board(['i.i']);
+  const r = move(b, 0, 2);
   assert.equal(r.merged, null);
-  assert.deepEqual(show(r.board), ['iif', '...']);
+  assert.equal(r.board, b);
 });
 
-test('物の上に動かすと入れ替わり、そろえば合わせる', () => {
+test('つながりの中の1個を隣に重ねても、持ち上げた物は数えなおす', () => {
+  // 3個並んだ端の1個を真ん中に重ねる：残り2個＋重ねた1個＝3個
+  const b = board(['iii']);
+  const r = move(b, 0, 1);
+  assert.equal(r.merged.used, 3);
+  assert.deepEqual(show(r.board), ['.I.']);
+});
+
+test('違う物の上に動かすと入れ替わるだけ（そろっても合わさらない）', () => {
   const b = board(['iif', 'i..']);
   const r = move(b, 3, 2);
-  // 右上に鉄鉱が来て左の2個とつながる。炎の欠片は鉄鉱の元の場所へ
-  assert.equal(r.merged.used, 3);
-  assert.deepEqual(show(r.board), ['..I', 'f..']);
+  assert.equal(r.merged, null);
+  assert.deepEqual(show(r.board), ['iii', 'f..']);
+});
+
+test('一番上のランクは合わせられない', () => {
+  const top = createBoard(3, 1);
+  top.cells = [{ kind: 'iron', rank: 7 }, { kind: 'iron', rank: 7 }, { kind: 'iron', rank: 7 }];
+  assert.equal(move(top, 0, 1).merged, null);
 });
 
 test('つながりは上下左右だけ（斜めは数えない）', () => {
   const b = board(['i.', '.i']);
   assert.deepEqual(groupAt(b, 0), [0]);
-});
-
-test('mergeAt は2個以下や一番上のランクでは何もしない', () => {
-  const b = board(['ii.']);
-  assert.equal(mergeAt(b, 0).merged, null);
-  const top = createBoard(3, 1);
-  top.cells = [{ kind: 'iron', rank: 7 }, { kind: 'iron', rank: 7 }, { kind: 'iron', rank: 7 }];
-  assert.equal(mergeAt(top, 0).merged, null);
 });
 
 test('元の盤は変えない（純粋な関数）', () => {

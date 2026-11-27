@@ -134,12 +134,13 @@ test('工房の出口は地域1のボスまで閉じている', () => {
   assert.equal(feed(s, 0, 'workshop').ok, false);
 });
 
-test('手で動かして合わせる', () => {
+test('手で重ねて合わせる', () => {
   const s = createGame();
   s.board.cells[0] = { kind: 'iron', rank: 1 };
   s.board.cells[1] = { kind: 'iron', rank: 1 };
   s.board.cells[7] = { kind: 'iron', rank: 1 };
-  const r = moveItem(s, 7, 2);
+  assert.equal(moveItem(s, 7, 2).merged, null, '空きマスに並べただけでは合わさらない');
+  const r = moveItem(s, 7, 1);
   assert.equal(r.merged.rank, 2);
   assert.equal(r.state.stats.merges, 1);
   assert.equal(moveItem(s, 10, 3).state, s, '空きマスからは動かせない');
@@ -149,6 +150,7 @@ test('地域1のボスを倒すと、地域2・工房の出口・マージの職
   const r = until(strong(), (e) => e.type === 'boss');
   const s = r.state;
   assert.deepEqual(s.cleared, [1]);
+  assert.deepEqual(s.stats.firstBoss[1], { tick: s.tick, level: 200 }, '初めて倒した刻みとレベルを残す');
   assert.deepEqual(s.open.regions, [1, 2]);
   assert.ok(s.open.exits.includes('workshop'));
   assert.ok(s.open.unlocks.includes('crafter:merge'));
