@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workshop Wayfarer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app">
+  <h1>Workshop Wayfarer</h1>
+  <p class="lead">勇者の冒険は止まらない。その間に工房で素材を合わせ、武器を打ち、道場で技を覚える。慣れた作業から職人に任せていく。</p>
+  <p class="note">いまは作り始めたところ（工程0：土台）。下はマージの盤のランクと価値の見本。</p>
+  <table class="ranks">
+    <caption>ランクと価値（ランクごとに3倍）</caption>
+    <thead><tr><th scope="col">ランク</th><th scope="col">価値</th></tr></thead>
+    <tbody id="rank-rows"></tbody>
+  </table>
+  <ul class="merges">
+    <li>3個合わせ → 上のランク1個：価値は <span id="gain3"></span> 倍（場所が空く）</li>
+    <li>5個合わせ → 上のランク2個：価値は <span id="gain5"></span> 倍（得をする）</li>
+  </ul>
+  <p class="version">版 <span id="version"></span></p>
+</main>
+<script type="module" src="src/ui/main.js"></script>
+</body>
+</html>

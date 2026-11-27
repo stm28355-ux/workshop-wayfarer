@@ -1,0 +1,35 @@
+:root {
+  --bg: #1d2128;
+  --ink: #f1ede4;
+  --quiet: #a9a59b;
+  --line: #3a404c;
+  --accent: #e0a85a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  line-height: 1.6;
+}
+
+#app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+h1 { margin: 0 0 8px; font-size: 1.8rem; letter-spacing: 0.04em; }
+.lead { margin: 0 0 4px; }
+.note, .version { color: var(--quiet); font-size: 0.9rem; }
+
+.ranks { border-collapse: collapse; margin: 16px 0 8px; min-width: 200px; }
+.ranks caption { text-align: left; color: var(--quiet); font-size: 0.9rem; padding-bottom: 4px; }
+.ranks th, .ranks td { border-bottom: 1px solid var(--line); padding: 4px 16px 4px 0; text-align: right; }
+.ranks th:first-child, .ranks td:first-child { text-align: left; }
+
+.merges { padding-left: 20px; }
+.merges span { color: var(--accent); font-weight: 600; }
