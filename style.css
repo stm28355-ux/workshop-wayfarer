@@ -29,7 +29,7 @@ button { font: inherit; color: inherit; }
 
 .top {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
-  max-width: 1100px; margin: 0 auto; padding: 12px 16px 0;
+  max-width: 1400px; margin: 0 auto; padding: 12px 16px 0;
 }
 .top h1 { margin: 0; font-size: 1.4rem; letter-spacing: 0.04em; }
 .tag { color: var(--quiet); font-size: 0.85rem; }
@@ -40,7 +40,7 @@ button { font: inherit; color: inherit; }
 }
 .tools button[aria-pressed="true"] { border-color: var(--accent); }
 
-#app { max-width: 1100px; margin: 0 auto; padding: 12px 16px 32px; display: grid; gap: 16px; }
+#app { max-width: 1400px; margin: 0 auto; padding: 12px 16px 32px; display: grid; gap: 16px; }
 
 /* 冒険の帯 */
 .band { background: var(--panel); border-radius: 12px; padding: 12px 16px; display: grid; gap: 8px; }
@@ -75,9 +75,23 @@ button { font: inherit; color: inherit; }
 
 /* 段1 */
 .stage { display: grid; gap: 16px; }
-@media (min-width: 760px) { .stage { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: start; } }
+@media (min-width: 760px) {
+  .stage { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: start; }
+  .stage .board-side { grid-column: 1; grid-row: 1; }
+  .stage .exit-side { grid-column: 2; grid-row: 1; }
+  .stage .forge-side { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (min-width: 1200px) {
+  /* PC：盤・打ち分け・出口を横に並べる（判定表 第3回 F1） */
+  .stage { grid-template-columns: minmax(0, 440px) minmax(0, 1fr) minmax(0, 290px); }
+  .stage .board-side { grid-column: 1; grid-row: 1; }
+  .stage .forge-side { grid-column: 2; grid-row: 1; }
+  .stage .exit-side { grid-column: 3; grid-row: 1; }
+  .exits { grid-template-columns: minmax(0, 1fr); }
+}
 .stage h2 { margin: 0 0 8px; font-size: 1rem; color: var(--quiet); font-weight: 600; }
-.board-side, .exit-side { background: var(--panel); border-radius: 12px; padding: 12px 16px; }
+.board-side, .exit-side, .forge-side { background: var(--panel); border-radius: 12px; padding: 12px 16px; }
+.stage-tabs { display: none; }
 
 .board {
   display: grid; grid-template-columns: repeat(var(--w, 5), minmax(0, 1fr)); gap: 6px;
@@ -138,6 +152,72 @@ dialog::backdrop { background: rgb(0 0 0 / 0.5); }
 dialog h2 { margin-top: 0; }
 dialog li { margin-bottom: 6px; }
 
+/* 段2 打ち分け */
+.small { font-size: 0.85rem; }
+.forge-side h3, .workshop h3 { margin: 12px 0 6px; font-size: 0.95rem; color: var(--quiet); font-weight: 600; }
+.stock { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border-radius: 18px;
+  border: 1px solid var(--line); background: #1a1e24; cursor: pointer; font-size: 0.85rem;
+}
+.chip b { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: color-mix(in srgb, var(--c) 45%, #1a1e24); border: 1px solid var(--c); font-size: 12px; }
+.chip span { font-weight: 700; color: var(--ink); }
+.chip.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.chip:disabled { cursor: default; opacity: 0.75; }
+.step { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 8px 0; }
+.step-name { width: 100%; color: var(--quiet); font-size: 0.85rem; }
+.opt {
+  display: inline-grid; gap: 1px; text-align: left; min-height: 44px; padding: 6px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: #1a1e24; cursor: pointer;
+}
+.opt small { color: var(--quiet); font-size: 0.75rem; }
+.opt.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.opt:disabled { opacity: 0.45; cursor: not-allowed; }
+.opt.static { cursor: default; }
+.fuel-row { display: inline-flex; align-items: center; gap: 6px; margin-right: 10px; }
+.mini { min-width: 36px; min-height: 36px; border-radius: 8px; border: 1px solid var(--line); background: #1a1e24; cursor: pointer; }
+.mini.wide { padding: 0 10px; }
+.mini:disabled { opacity: 0.4; cursor: not-allowed; }
+.go {
+  min-height: 44px; padding: 0 20px; margin-top: 8px; border-radius: 10px; border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 25%, #1a1e24); font-weight: 700; cursor: pointer;
+}
+.go:disabled { opacity: 0.45; cursor: not-allowed; border-color: var(--line); background: #1a1e24; }
+.result { padding: 6px 10px; border-radius: 8px; background: #1a1e24; border-left: 3px solid var(--line); }
+.result.crit { border-left-color: var(--accent); color: var(--accent); }
+.sess-title { margin: 0 0 6px; }
+.temps { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.temp { display: inline-grid; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--quiet); font-size: 0.85rem; }
+.temp small { font-size: 0.7rem; }
+.temp.past { opacity: 0.4; }
+.temp.now { color: var(--ink); border-color: var(--accent); }
+.temp.t0.now { background: rgb(226 98 63 / 0.35); }
+.temp.t1.now { background: rgb(224 168 90 / 0.3); }
+.temp.t2.now { background: rgb(150 70 60 / 0.4); }
+.strikes { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.anvil { display: grid; grid-template-columns: repeat(var(--w, 2), minmax(0, 120px)); gap: 6px; }
+.anv {
+  position: relative; display: grid; justify-items: center; gap: 2px; min-height: 76px; padding: 6px; border-radius: 10px;
+  border: 1px solid var(--line); background: #1a1e24; cursor: pointer;
+}
+.anv b { font-size: 1.3rem; }
+.anv small { color: var(--quiet); font-size: 0.72rem; }
+.anv .mark { position: absolute; top: 4px; right: 8px; font-size: 0.85rem; color: var(--good); }
+.anv.best { border-color: var(--good); }
+.anv.ok { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.anv.crack { border-color: var(--bad); }
+.anv.crack .mark { color: var(--bad); }
+.anv.aim { box-shadow: 0 0 0 2px var(--accent) inset; }
+.anv .gain { font-size: 0.8rem; color: var(--accent); font-weight: 700; }
+.anv .gain.good { color: var(--good); }
+.anv .gain.bad { color: var(--bad); }
+.gear { margin-top: 8px; border-top: 1px solid var(--line); }
+.gear-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.workshop { margin-top: 10px; display: grid; gap: 6px; }
+.workshop h3 { margin: 4px 0 0; }
+.workshop .shop { width: 100%; }
+.workshop p { margin: 0; }
+
 @media (max-width: 600px) {
   /* スマホ：冒険の帯を詰めて、盤と出口を1画面に入れる */
   .top { padding-top: 8px; }
@@ -165,4 +245,24 @@ dialog li { margin-bottom: 6px; }
   .exit-sub { font-size: 0.7rem; }
   .exit-gain { font-size: 0.75rem; }
   .rates { font-size: 0.8rem; margin-top: 8px; }
+  /* スマホ：段1と段2をタブで切り替える（判定表 第3回 F1） */
+  .stage-tabs:not([hidden]) { display: flex; gap: 6px; }
+  .stage-tabs button { flex: 1; min-height: 40px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
+  .stage-tabs button[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .stage[data-tab="1"] .forge-side { display: none; }
+  .stage[data-tab="2"] .board-side, .stage[data-tab="2"] .exit-side { display: none; }
+  .forge-side { padding: 8px 10px; }
+  .forge-side h2 { display: none; }
+  .workshop { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .workshop h3, .workshop p { grid-column: 1 / -1; }
+  .workshop .opt { font-size: 0.75rem; padding: 4px 6px; }
+  /* 打っている間は素材の一覧を隠し、金床が1画面に入るように詰める */
+  #forge-body[data-busy="1"] .stock { display: none; }
+  .sess-title { font-size: 0.9rem; }
+  .temps { flex-wrap: nowrap; }
+  .temp { padding: 2px 6px; font-size: 0.78rem; }
+  .strikes { gap: 4px; margin: 4px 0 6px; }
+  .strikes .opt { min-height: 40px; padding: 4px 8px; font-size: 0.85rem; }
+  .anv { min-height: 62px; padding: 4px; }
+  .anv b { font-size: 1.1rem; }
 }

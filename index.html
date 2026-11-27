@@ -9,7 +9,7 @@
 <body>
 <header class="top">
   <h1>Workshop Wayfarer</h1>
-  <span class="tag">試作：地域1の冒険とマージの盤</span>
+  <span class="tag">試作：冒険・マージの盤・打ち分け</span>
   <nav class="tools">
     <button type="button" id="btn-pause" data-act="pause">一時停止</button>
     <button type="button" id="btn-help" data-act="help">遊び方</button>
@@ -50,15 +50,30 @@
     <ol id="log" class="log" aria-live="polite"></ol>
   </section>
 
-  <section class="stage" data-ui="stage1" aria-label="段1 マージの盤">
+  <nav class="stage-tabs" id="stage-tabs" role="tablist" aria-label="段" hidden>
+    <button type="button" role="tab" id="tab-1" data-act="tab" data-tab="1" aria-selected="true">段1 マージ</button>
+    <button type="button" role="tab" id="tab-2" data-act="tab" data-tab="2" aria-selected="false">段2 打ち分け</button>
+  </nav>
+
+  <section class="stage" id="stage" data-tab="1" aria-label="段1 マージの盤と段2 打ち分け">
     <div class="board-side">
       <h2>段1 マージの盤</h2>
       <div id="board" class="board" role="grid" aria-label="マージの盤"></div>
       <p id="selected" class="selected"></p>
     </div>
+    <div class="forge-side" id="forge-side" data-ui="stage2" aria-label="段2 打ち分け">
+      <h2>段2 打ち分け</h2>
+      <p id="forge-locked" class="quiet">地域1のボスを倒すと開く。装備作りの出口に入れた素材で、武器・防具・アクセサリーを打つ。</p>
+      <div id="forge-body" hidden>
+        <div id="stock" class="stock" aria-label="装備作りにたまった素材"></div>
+        <div id="forge-main"></div>
+        <div id="gear" class="gear"></div>
+      </div>
+    </div>
     <div class="exit-side">
       <h2>出口</h2>
       <div id="exits" class="exits"></div>
+      <div id="workshop" class="workshop" hidden></div>
       <p class="rates">毎分　拾う <b id="rate-pick" class="num">0</b>　合わせた <b id="rate-merge" class="num">0</b>　あふれ <b id="rate-over" class="num">0</b></p>
       <details class="records" open>
         <summary>記録（試すとき用）</summary>
@@ -77,10 +92,20 @@
     <li>勇者は止まらず道を進み、敵と自動で戦う。倒した敵の落とし物が<b>盤</b>に出る。</li>
     <li>物を同じ物（同じ種類・同じランク）の<b>上に重ねる</b>と合わさる。重ねた物と、重ねた先につながった同じ物を合わせて<b>3個</b>なら上のランク1個、<b>5個</b>なら上のランク2個。ランクが1つ上がると価値は3倍。3個は損得なしで場所が空き、5個は2割の得。</li>
     <li>物は<b>ドラッグ</b>で動かす（押してから動かす先を押してもよい）。空きマスに置くと動くだけで、隣に並べても合わさらない。違う物の上に置くと入れ替わる。拾っただけでも合わさらない。</li>
-    <li>盤の物を<b>出口</b>へ入れる：<b>支度</b>（冒険を続けられる時間が伸びる）、<b>育てる</b>（経験。レベルで攻撃と HP が伸びる）、<b>装備作り</b>（武器の材料。打ち分けは工程3から）、<b>工房</b>（地域1のボスの後に開く）。</li>
-    <li>支度が切れるか倒れると村へ帰り、すぐ入口から出発し直す。倒れたときは支度の残りを失う。</li>
+    <li>盤の物を<b>出口</b>へ入れる：<b>支度</b>（冒険を続けられる時間が伸びる）、<b>育てる</b>（経験。レベル1つで攻撃と HP が8%伸びる）、<b>装備作り</b>（打ち分けの素材と燃料）、<b>工房</b>（盤を広げる・職人を鍛える。地域1のボスの後に開く）。</li>
+    <li>出発のときの支度は30秒ぶん。支度が切れるか倒れると村へ帰り、3秒待って入口から出発し直す。倒れたときは支度の残りを失う。</li>
     <li>盤がいっぱいのときに拾った物は、そのまま支度に入る（あふれ）。損をしている印。</li>
     <li>道の終わり（◆）のボスを倒すのが目標。画面を閉じている間や裏のタブの間は止まる。</li>
+  </ul>
+  <h3>段2 打ち分け（地域1のボスの後）</h3>
+  <ul>
+    <li><b>素材</b>で作れる物が決まる：鉄鉱・銅鉱からは武器と防具、炎・石の欠片からはアクセサリー。<b>格</b>n を打つと素材を 30×3^(n−1) 使う（格1は30、格2は90）。</li>
+    <li>同じ物で格が同じか下を打つと、数値が<b>加算</b>される（格ごとに4回まで）。格が上を打つと、加算を全部引き継いで<b>格上げ</b>。</li>
+    <li><b>燃料</b>に欠片を入れる。入れた価値の合計が<b>集中力</b>（叩くたびに減る）。炎の欠片は価値3ごとに「火を足す」が1回使える。</li>
+    <li>叩き方を選んでマスを押す。叩く前に伸びが見える（マウスなら重ねるだけ、タッチなら1回目で見えて2回目で叩く）。各マスの目標の帯に入れば○、真ん中で◎、超えるとひび。全部◎なら<b>会心</b>。</li>
+    <li>温度は 灼熱（伸び2倍）→ 赤熱 → 暗赤（半分）。決まった回数叩くと下がる。「火を足す」は段の頭で1段戻す。冷えるか集中力が切れると仕上がる。「仕上げる」でいつでも止められる。</li>
+    <li>出来は基本の50〜100%（会心は120%）。武器は攻撃、鎧は HP、盾は1回に受けるダメージを引く。アクセサリーは持っている物が全部効く。</li>
+    <li>地域2のボスの後は<b>マージの職人</b>が盤を合わせ、地域3のボスの後は<b>打ち分けの職人</b>が、手で出した一番の手順で打ち続ける。</li>
   </ul>
   <form method="dialog"><button type="submit">閉じる</button></form>
 </dialog>
