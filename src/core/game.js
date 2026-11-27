@@ -12,7 +12,17 @@ import { crafterMerge } from './crafter.js';
 import * as forge from './forge.js';
 import { KINDS } from '../data/balance.js';
 
-export const STATE_VERSION = 2;
+export const STATE_VERSION = 3;
+
+// 前の版の保存を今の形にする（版2 → 3：道場を足した）。読めなければ null。
+export function migrate(state) {
+  if (!state) return null;
+  if (state.version === 2) {
+    state.dojo = { nodes: {}, scroll: null, drawn: 0 };
+    state.version = 3;
+  }
+  return state.version === STATE_VERSION ? state : null;
+}
 
 export function region(id) {
   const r = REGIONS.find((x) => x.id === id);
@@ -72,6 +82,7 @@ export function createGame() {
     forge: { session: null, fuel: null, best: {}, auto: true, cd: FORGE_CRAFTER.everyTicks, next: 0 },
     crafter: { cd: MERGE_CRAFTER.everyTicks },
     workshop: { arm: 0, speed: 0, widen: 0 },
+    dojo: { nodes: {}, scroll: null, drawn: 0 },
     stats: {
       departures: 1, picked: 0, overflow: 0, merges: 0, crafterMerges: 0, kills: 0, crafted: 0, autoCrafted: 0, crits: 0,
       returns: { prep: 0, down: 0, boss: 0 }, firstBoss: {},
@@ -223,7 +234,7 @@ function tickOnce(s, events, locked) {
     }
     f.enemyCd -= 1;
     if (f.enemyCd <= 0) {
-      run.hp -= damageTaken(f.atk, hero.guard);
+      run.hp -= damageTaken(f.atk, hero.guard) * hero.taken;
       f.enemyCd = f.enemyTicks;
       if (run.hp <= 0) {
         goHome(s, 'down', events); // 倒れたら支度の残りを失って帰る（判定表 第1回 B6）

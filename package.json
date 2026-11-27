@@ -1,6 +1,6 @@
 {
   "name": "workshop-wayfarer",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "止まらない冒険の間に、手元の工房で強さを作り、慣れた作業から職人に任せていくインクリメンタルRPG",

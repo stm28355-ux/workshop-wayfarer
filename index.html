@@ -9,7 +9,7 @@
 <body>
 <header class="top">
   <h1>Workshop Wayfarer</h1>
-  <span class="tag">試作：冒険・マージの盤・打ち分け</span>
+  <span class="tag">試作：冒険・マージの盤・打ち分け・道場</span>
   <nav class="tools">
     <button type="button" id="btn-pause" data-act="pause">一時停止</button>
     <button type="button" id="btn-help" data-act="help">遊び方</button>
@@ -53,6 +53,7 @@
   <nav class="stage-tabs" id="stage-tabs" role="tablist" aria-label="段" hidden>
     <button type="button" role="tab" id="tab-1" data-act="tab" data-tab="1" aria-selected="true">段1 マージ</button>
     <button type="button" role="tab" id="tab-2" data-act="tab" data-tab="2" aria-selected="false">段2 打ち分け</button>
+    <button type="button" role="tab" id="tab-3" data-act="tab" data-tab="3" aria-selected="false" hidden>段3 道場</button>
   </nav>
 
   <section class="stage" id="stage" data-tab="1" aria-label="段1 マージの盤と段2 打ち分け">
@@ -62,13 +63,18 @@
       <p id="selected" class="selected"></p>
     </div>
     <div class="forge-side" id="forge-side" data-ui="stage2" aria-label="段2 打ち分け">
-      <h2>段2 打ち分け</h2>
+      <div class="mid-head"><h2>段2 打ち分け</h2><button type="button" class="mini wide mid-go" data-mid="dojo" hidden>段3 道場へ</button></div>
       <p id="forge-locked" class="quiet">地域1のボスを倒すと開く。装備作りの出口に入れた素材で、武器・防具・アクセサリーを打つ。</p>
       <div id="forge-body" hidden>
         <div id="stock" class="stock" aria-label="装備作りにたまった素材"></div>
         <div id="forge-main"></div>
         <div id="gear" class="gear"></div>
       </div>
+    </div>
+    <div class="dojo-side" id="dojo-side" data-ui="stage3" aria-label="段3 道場">
+      <div class="mid-head"><h2>段3 道場</h2><button type="button" class="mini wide mid-go" data-mid="forge">段2 打ち分けへ</button></div>
+      <p id="dojo-locked" class="quiet">地域2のボスを倒すと開く。巻物を解いてスキルツリーの節を上げる。</p>
+      <div id="dojo-body" hidden></div>
     </div>
     <div class="exit-side">
       <h2>出口</h2>
@@ -96,6 +102,13 @@
     <li>勇者は1秒に20歩進む。出発のときの支度は30秒ぶん。支度が切れるか倒れると村へ帰り、3秒待って入口から出発し直す。倒れたときは支度の残りを失う。</li>
     <li>盤がいっぱいのときに拾った物は、そのまま支度に入る（あふれ）。損をしている印。</li>
     <li>道の終わり（◆）のボスを倒すのが目標。画面を閉じている間や裏のタブの間は止まる。</li>
+  </ul>
+  <h3>段3 道場（地域2のボスの後）</h3>
+  <ul>
+    <li>守りの流派のスキルツリーの節を選び、<b>巻物</b>を開く。数字は、まわり8マス（十字の巻物は上下左右に2マスずつ）の罠の数。罠でないマスを全部開ければ解けた。どの巻物も当てずっぽうなしに推理だけで解ける。</li>
+    <li>解くと<b>熟練</b>3（ミス1回につき −1、最低1）。熟練2で節が1段上がる（5段まで）。節が 1/5 になると次の節が開く。</li>
+    <li><b>小さい節</b>は段ごとに HP や攻撃が伸びる。<b>技</b>の節を上げると、その技を巻物で「修行中の技」として使える（戦いでの効きは次の工程）。</li>
+    <li>変えルール：<b>十字</b>（数える形が十字）、<b>連結</b>（罠は全部つながる）、<b>組</b>（罠は2つずつの組で、組どうし接しない）。</li>
   </ul>
   <h3>段2 打ち分け（地域1のボスの後）</h3>
   <ul>

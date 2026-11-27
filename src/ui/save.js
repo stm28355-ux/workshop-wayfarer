@@ -1,7 +1,7 @@
 // localStorage への保存。形が変わったら SAVE_VERSION を上げる（古い保存は読まずに始めからにする）。
 // 試すとき（?test=…）は本番と別の場所に保存する。
 import { APP_VERSION } from '../version.js';
-import { STATE_VERSION } from '../core/game.js';
+import { migrate } from '../core/game.js';
 
 const BASE = 'workshop-wayfarer:save';
 const SAVE_VERSION = 2;
@@ -15,8 +15,10 @@ export function load(slot) {
     const raw = localStorage.getItem(keyOf(slot));
     if (!raw) return null;
     const data = JSON.parse(raw);
-    if (data.v !== SAVE_VERSION || !data.state || data.state.version !== STATE_VERSION) return null;
-    return { state: data.state, meta: data.meta ?? {} };
+    if (data.v !== SAVE_VERSION) return null;
+    const state = migrate(data.state);
+    if (!state) return null;
+    return { state, meta: data.meta ?? {} };
   } catch {
     return null;
   }
