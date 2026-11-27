@@ -9,7 +9,7 @@
 
 https://stm28355-ux.github.io/workshop-wayfarer/
 
-いまは作り始めたところ（工程0）。
+いまは試作（工程2）：地域1の冒険とマージの盤。`?speed=4` で4倍速、`?test=open` で全部の地域と出口が開く。
 
 ## 開発
 
