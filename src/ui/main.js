@@ -16,7 +16,8 @@ const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
 // 試すとき：?test=open は地域1のボスを倒した後（素材つき）、?test=all は地域3のボスの後（職人が2人とも来ている）。
 // 試すときの保存は本番と別。
 // ?test=dojo は地域2のボスの後（道場が開いている）。
-const TEST = ['open', 'dojo', 'all'].includes(params.get('test')) ? params.get('test') : null;
+// ?test=line は地域2のボスの後で、守りの札が全部使え（節 1/5）、技の節3つが 3/5（枠6）。
+const TEST = ['open', 'dojo', 'line', 'all'].includes(params.get('test')) ? params.get('test') : null;
 const SLOT = TEST ? `test-${TEST}` : undefined;
 const TICK_MS = 1000 / TICKS_PER_SEC;
 const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
@@ -37,7 +38,7 @@ if (loaded) {
 
 function testState(mode) {
   const s = createGame();
-  const upto = { open: 1, dojo: 2, all: 3 }[mode];
+  const upto = { open: 1, dojo: 2, line: 2, all: 3 }[mode];
   for (let id = 1; id <= upto; id++) {
     s.cleared.push(id);
     for (const key of region(id).unlocks) {
@@ -50,6 +51,11 @@ function testState(mode) {
   s.hero.level = mode === 'all' ? 11 : 8;
   s.stock.forge = mode === 'all' ? { iron: 600, copper: 600, fire: 200, stone: 200 } : { iron: 150, copper: 60, fire: 40, stone: 30 };
   s.stock.workshop = mode === 'all' ? 300 : 60;
+  if (mode === 'line') {
+    for (const id of ['kamae', 'uke', 'mikiri', 'hada', 'tategamae', 'kaeshi', 'tateuchi', 'fumikomi', 'kizu', 'ibuki', 'ukenagashi', 'seishin', 'tame', 'shingan']) s.dojo.nodes[id] = { skill: 2 };
+    for (const id of ['tateuchi', 'tame', 'mikiri']) s.dojo.nodes[id] = { skill: 6 };
+    s.hero.level = 10;
+  }
   s.run.hp = heroStats(s).maxHp;
   return s;
 }
