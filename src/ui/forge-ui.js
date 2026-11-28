@@ -4,8 +4,8 @@ import {
   equipItem, setForgeAuto, upgradeCheck, buyUpgrade, widenTo, mergeCrafterTicks, mergeCrafterRank, setCrafterWait,
   craftable,
 } from '../core/game.js';
-import { planOf, mainValue, heroStats, itemKey, baseOf, statOf, intervalText } from '../core/gear.js';
-import { preview, canStrike, canFire, score, cellQuality, strikeAmount, hasTool } from '../core/forge.js';
+import { planOf, mainValue, heroStats, itemKey, baseOf, statOf, intervalText, craftGain } from '../core/gear.js';
+import { preview, canStrike, canFire, score, cellQuality, strikeAmount, hasTool, strikesLeft } from '../core/forge.js';
 import { GEAR, SLOTS, STRIKES, TEMPS, GEAR_KINDS, gearCost, bandOf } from '../data/forge.js';
 import { KINDS, WORKSHOP, TICKS_PER_SEC } from '../data/balance.js';
 import { discipleTicks } from '../core/dojo.js';
@@ -233,37 +233,53 @@ export function createForgeUI({ get, set, log }) {
     }).join('') + `<span class="temp t3${se.temp > 2 ? ' now' : ''}">冷えた</span></div>`;
     const tempNote = se.temp > 2
       ? '冷えて叩けない。火を足すと暗赤に戻る'
-      : `あと${se.left}回叩くと${se.temp < 2 ? `${TEMPS[se.temp + 1].name}に下がる` : '冷えて叩けなくなる'}。火を足すといつでも1段熱くなり、その段を最初から叩ける`;
+      : `あと${se.left}回叩くと${se.temp < 2 ? `${TEMPS[se.temp + 1].name}に下がる` : '冷えて叩けなくなる'}${se.quirk === 'decay' ? `（魔銀：下がるとき全部のマスが −1${se.left === 1 ? '。次の1打で下がる' : ''}）` : ''}。火を足すといつでも1段熱くなり、その段を最初から叩ける`;
     h += `<p class="small temp-note">${tempNote}</p>`;
     const bests = se.values.filter((v, i) => cellQuality(v, se.targets[i]).q === 2).length;
     h += `<p class="num">集中力 <b>${se.conc}</b>　火 <b>${se.fire}</b>回　◎ <b>${bests}</b>/${se.values.length}マス（全部◎で会心＝基本の${Math.round(GEAR.crit * 100)}%）<br>今の出来 ${sc.sum}/${sc.max}・基本の${Math.round(sc.ratio * 100)}%</p>`;
+    h += gainHtml(s.gear.items, se, sc);
     // 叩き方
     const SHAPE = { one: '1マス', vertical: '縦2マス', cross: '十字', row: '横1列' };
     const sign = (v) => (v < 0 ? `−${-v}` : `＋${v}`);
     h += '<div class="strikes">' + Object.entries(STRIKES).filter(([id]) => hasTool(se, id)).map(([id, st]) => {
       const ok = canStrike(se, id);
       return `<button type="button" class="opt${ui.strike === id ? ' sel' : ''}" data-act="strike" data-strike="${id}" ${ok ? '' : 'disabled'}>` +
-        `${st.name}<small>${SHAPE[st.shape]} ${sign(strikeAmount(se, id))}・集中${st.cost}</small></button>`;
+        `${st.name}<small>${SHAPE[st.shape]} ${sign(strikeAmount(se, id))}・集中${st.cost}</small><small class="num">${ok ? `あと${strikesLeft(se, id)}回` : '使えない'}</small></button>`;
     }).join('') + `<button type="button" class="opt" data-act="fire" ${canFire(se) ? '' : 'disabled'}>火を足す<small>1段熱くして段を最初から</small></button></div>`;
     // 盤（叩く前の伸びを見せる）
     const pv = ui.aim !== null && canStrike(se, ui.strike) ? preview(se, ui.strike, ui.aim) : [];
-    const gain = new Map(pv.map((p) => [p.index, p.amount]));
+    const gain = new Map(pv.map((p) => [p.index, p]));
     h += `<div class="anvil" style="--w:${se.w}">` + se.values.map((v, i) => {
       const c = se.targets[i];
       const q = cellQuality(v, c);
-      const g = gain.get(i);
+      const p = gain.get(i);
+      const g = p?.amount ?? 0;
+      const hitHere = !!p && (p.hit ?? true);
       const mark = q.crack ? 'ひび' : q.q === 2 ? '◎' : q.q === 1 ? '○' : '';
       let next = '';
-      if (g) {
-        const nq = cellQuality(Math.max(0, v + g), c);
-        const nv = Math.max(0, v + g);
-        next = `<span class="gain${nq.crack ? ' bad' : nq.q === 2 ? ' good' : ''}">${g < 0 ? '−' : '＋'}${Math.abs(g)}→${nv}</span>`;
+      if (p) {
+        const nv = v + g;
+        const nq = cellQuality(nv, c);
+        const cls = nq.crack ? ' bad' : nq.q === 2 ? ' good' : q.q > nq.q ? ' bad' : '';
+        next = `<span class="gain${cls}">${g < 0 ? '−' : g > 0 ? '＋' : '±'}${Math.abs(g)}→${nv}</span>`;
       }
-      return `<button type="button" class="anv${g ? ' aim' : ''}${q.crack ? ' crack' : q.q === 2 ? ' best' : q.q === 1 ? ' ok' : ''}" data-act="hit" data-cell="${i}" aria-label="マス${i + 1}：今${v}、目標${c}（${c - 1}〜${c + 1}）">` +
+      return `<button type="button" class="anv${hitHere ? ' aim' : ''}${q.crack ? ' crack' : q.q === 2 ? ' best' : q.q === 1 ? ' ok' : ''}" data-act="hit" data-cell="${i}" aria-label="マス${i + 1}：今${v}、目標${c}（${c - 1}〜${c + 1}）">` +
         `<b class="num">${v}</b><small class="num">目標 ${c}（${c - 1}〜${c + 1}）</small><span class="mark">${mark}</span>${next}</button>`;
     }).join('') + '</div>';
     h += '<button type="button" class="go" data-act="finish">仕上げる</button>';
     return h;
+  }
+
+  // 今の出来で仕上げたときと会心のときの数値（判定表 第17回 Q3）。
+  function gainHtml(items, se, sc) {
+    const now = craftGain(items, se.kind, se.slot, se.tier, sc.ratio);
+    if (now.mode === 'full') return '';
+    const crit = craftGain(items, se.kind, se.slot, se.tier, GEAR.crit);
+    const verb = now.mode === 'add' ? '加算で' : now.mode === 'up' ? '格上げで' : '';
+    const nowText = statText(now.stat, now.after);
+    const critText = statText(now.stat, crit.after);
+    const before = now.mode === 'new' ? '' : `今 ${statText(now.stat, now.before)} → `;
+    return `<p class="small gain-line">仕上げると${verb}：${before}<b>${nowText}</b>${sc.crit ? '（会心）' : `　会心なら <b>${critText}</b>`}</p>`;
   }
 
   function gearHtml(s) {

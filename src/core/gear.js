@@ -54,6 +54,17 @@ export function applyCraft(items, kind, slot, tier, ratio) {
   return { items: next, plan };
 }
 
+// 出来 ratio で打つと主の数値がどうなるか（判定表 第17回 Q3：会心と会心でないときの差を見せる）。
+// 加算でも足す量に出来が掛かるので、会心なら1.2倍足される。
+export function craftGain(items, kind, slot, tier, ratio) {
+  const key = itemKey(kind, slot);
+  const old = items[key];
+  const r = applyCraft(items, kind, slot, tier, ratio);
+  const before = old ? mainValue(old) : 0;
+  const it = r.items[key];
+  return { stat: statOf(kind, slot), mode: r.plan.mode, before, after: it ? mainValue(it) : before };
+}
+
 export function levelMult(level) {
   return LEVEL.mult ** (level - 1);
 }

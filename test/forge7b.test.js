@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, forgeStart, forgeStrike, forgeCheck, craftable, fuelTools, CRAFT_MIN_FUEL } from '../src/core/game.js';
-import { newSession, strike, strikeCells, canStrike, strikeAmount, addFire } from '../src/core/forge.js';
-import { heroStats, applyCraft } from '../src/core/gear.js';
+import { newSession, strike, strikeCells, canStrike, strikeAmount, addFire, preview, strikesLeft } from '../src/core/forge.js';
+import { heroStats, applyCraft, craftGain } from '../src/core/gear.js';
 import { newLine, heroAct } from '../src/core/lineup.js';
 import { GEAR, GEAR_KINDS, BANDS, bandOf, gearCost, STAT_CAPS } from '../src/data/forge.js';
 
@@ -113,4 +113,37 @@ test('今打てる物：素材と燃料が足りるときだけ。持ってい�
   s.stock.forge.iron = 100;
   const w2 = craftable(s).find((c) => c.slot === 'weapon');
   assert.deepEqual([w2.tier, w2.mode], [2, 'add']);
+});
+
+test('第17回：十字と横薙ぎは集中力2と1。叩き方ごとにあと何回使えるか', () => {
+  const s = newSession({ kind: 'iron', slot: 'weapon', tier: 3, conc: 24, fire: 0, tools: ['thunder', 'wind'] });
+  assert.equal(strikesLeft(s, 'cross'), 12);
+  assert.equal(strikesLeft(s, 'sweep'), 24);
+  assert.equal(strikesLeft(s, 'fine'), 0, '氷は入れていない');
+  const t = strike(s, 'heavy', 0);
+  assert.equal(strikesLeft(t, 'heavy'), 11);
+});
+
+test('第17回：魔銀でこの1打で冷めるときは、見通しに全部の −1 が入る', () => {
+  let s = newSession({ kind: 'mithril', slot: 'weapon', tier: 1, conc: 16, fire: 0 });
+  s = strike(strike(s, 'heavy', 0), 'heavy', 1);
+  const pv = preview(s, 'tap', 2);
+  const at = new Map(pv.map((p) => [p.index, p]));
+  assert.equal(at.get(2).amount, 4 - 1);
+  assert.equal(at.get(2).hit, true);
+  assert.equal(at.get(0).amount, -1);
+  assert.equal(at.get(0).hit, false);
+  // 冷めないときは前と同じ形
+  const f = newSession({ kind: 'mithril', slot: 'weapon', tier: 1, conc: 16, fire: 0 });
+  assert.deepEqual(preview(f, 'tap', 0), [{ index: 0, amount: 4 }]);
+});
+
+test('第17回：会心なら加算でも足す量が1.2倍', () => {
+  const items = applyCraft({}, 'iron', 'weapon', 1, 1).items;
+  const a = craftGain(items, 'iron', 'weapon', 1, 1);
+  const c = craftGain(items, 'iron', 'weapon', 1, 1.2);
+  assert.equal(a.mode, 'add');
+  assert.ok(Math.abs((c.after - c.before) / (a.after - a.before) - 1.2) < 1e-9);
+  const n = craftGain({}, 'iron', 'weapon', 1, 1.2);
+  assert.deepEqual([n.mode, n.before], ['new', 0]);
 });
