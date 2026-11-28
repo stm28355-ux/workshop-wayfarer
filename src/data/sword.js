@@ -32,7 +32,7 @@ export const SWORD_TREE = Object.freeze([
   { id: 'shukketsu', name: '出血の刃', kind: 'tech', branch: '刃', needs: ['togi'], rule: 'mirror', tech: 'shukketsu' },
   { id: 'chi', name: '血の匂い', kind: 'small', branch: '刃', needs: ['shukketsu'], stat: { bleed: 0.1 } },
   { id: 'iai', name: '居合', kind: 'card', branch: '刃', needs: ['chi'], rule: 'color', text: '条件の札：戦いが始まって3秒より後なら次の1枚を飛ばす' },
-  { id: 'issen', name: '一閃', kind: 'secret', branch: '奥', needsAny: { of: ['renda', 'jujigiri', 'shukketsu'], n: 2 }, rules: ['color', 'mirror'], tech: 'issen' },
+  { id: 'issen', name: '一閃', kind: 'secret', branch: '奥', needsAny: { of: ['renda', 'jujigiri', 'shukketsu'], n: 2, level: 3 }, rules: ['color', 'mirror'], tech: 'issen' },
   { id: 'kenjun', name: '剣盾', kind: 'cross', branch: '奥', needs: ['tateuchi', 'jujigiri'], rules: ['sum', 'mirror'], tech: 'kenjun' },
 ].map((n) => ({ ...n, school: 'sword' })));
 

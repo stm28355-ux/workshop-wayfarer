@@ -39,8 +39,10 @@ test('剣は15節。流派が開くまで閉じていて、根から開く。剣
   assert.equal(isNodeOpen(s, 'kenjun'), false);
   s.dojo.nodes.tateuchi = { skill: 2 };
   assert.equal(isNodeOpen(s, 'kenjun'), true);
-  s.dojo.nodes.renda = { skill: 2 };
-  assert.equal(isNodeOpen(s, 'issen'), true, '奥義は3つの技のうち2つ');
+  s.dojo.nodes.renda = { skill: 6 };
+  assert.equal(isNodeOpen(s, 'issen'), false, '奥義は3つの技のうち2つが 3/5');
+  s.dojo.nodes.jujigiri = { skill: 6 };
+  assert.equal(isNodeOpen(s, 'issen'), true);
 });
 
 test('剣の巻物の形：下の段は 5×5、3/5 から 7×7。4/5 から変え2つ、5/5 は盤全体の手が1回まで', () => {

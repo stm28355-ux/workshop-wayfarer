@@ -7,12 +7,12 @@ import { createBoard, widen } from './board.js';
 import { BOARD, TICKS_PER_SEC } from '../data/balance.js';
 
 // その地域を出る（ボスを初めて倒す）ときの目安。min は遊び始めからの累計の分。
-// 地域4〜6は時間だけ（工程7で直す）。
+// 技の並びの比（tech）は人の記録に合わせて大きくした（判定表 第18回 G1：地域3 ×1.6 → ×3、地域4 ×4）。地域5・6は時間だけ（7d・7e で直す）。
 export const PLAN = Object.freeze([
   { region: 1, min: 15, level: 7 },
   { region: 2, min: 40, level: 9, weapon: 2, armor: 1 },
-  { region: 3, min: 75, level: 11, weapon: 2, armor: 2, slots: 4, tech: 1.6 }, // tech：木人（素）で並びなしとの比
-  { region: 4, min: 121 },
+  { region: 3, min: 75, level: 11, weapon: 2, armor: 2, slots: 4, tech: 3 }, // tech：木人（素）で並びなしとの比
+  { region: 4, min: 121, level: 13, weapon: 3, armor: 3, slots: 6, tech: 4 },
   { region: 5, min: 178 },
   { region: 6, min: 264 },
 ]);

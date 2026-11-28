@@ -1,10 +1,13 @@
-// 段3 道場の画面：流派（守り・剣）のスキルツリーと巻物、技の並び。ルールは src/core/dojo.js・scroll.js・nonogram.js を呼ぶだけ。
+// 段3 道場の画面：流派（守り・剣・魔法・弓）のスキルツリーと巻物、技の並び。ルールは src/core/dojo.js などを呼ぶだけ。
 import {
   levelOf, skillOf, isNodeOpen, nodeStats, scrollSpec, scrollCheck, startScroll, scrollOpen, scrollFlag, scrollTech, quitScroll, nodeOf, LEVEL_MAX, shapeKey,
-  scrollPaint, scrollMark, schoolOpen,
+  scrollPaint, scrollMark, schoolOpen, scrollPlace, scrollNote, scrollMirror, sudoLeft, beamLeft,
 } from '../core/dojo.js';
 import { NONO_RULES } from '../core/nonogram.js';
+import { ELEMENT_NAMES } from '../core/sudoku.js';
+import { SLASH, BACK } from '../core/mirrors.js';
 import { nonoBoardHtml } from './nono-view.js';
+import { sudoBoardHtml, beamBoardHtml, SUDO_RULE_TEXT, BEAM_RULE_TEXT } from './magic-view.js';
 import { SCHOOLS, ALL_TECHS } from '../data/schools.js';
 import { numberAt, areaOf, RULES } from '../core/scroll.js';
 import { TECHS, SKILL } from '../data/dojo.js';
@@ -33,8 +36,10 @@ export function createDojoUI({ get, set, log }) {
   }
 
   function specText(spec) {
-    const names = (r) => (RULES[r] ?? NONO_RULES[r]).name;
-    const rules = spec.rules.length ? spec.rules.map(names).join('＋') : '変えなし';
+    const table = spec.kind === 'sudo' ? SUDO_RULE_TEXT : spec.kind === 'beam' ? BEAM_RULE_TEXT : spec.kind === 'nono' ? NONO_RULES : RULES;
+    const rules = spec.rules.length ? spec.rules.map((r) => table[r].name).join('＋') : '変えなし';
+    if (spec.kind === 'sudo') return `属性の数独 ${spec.n}×${spec.n}・${rules}`;
+    if (spec.kind === 'beam') return `鏡 ${spec.w}×${spec.h}・${rules}`;
     return spec.kind === 'nono' ? `ピクロス ${spec.w}×${spec.h}・${rules}` : `${spec.w}×${spec.h}・${rules}・罠${spec.count}`;
   }
 
@@ -45,7 +50,8 @@ export function createDojoUI({ get, set, log }) {
         ui.last = e;
         log(`${n.name}の巻物を解いた（熟練＋${e.gain}${e.mistakes ? `・ミス${e.mistakes}` : ''}）${e.to > e.from ? `　${e.to}/5 に上がった` : ''}`, 'good');
       } else if (e.type === 'miss') {
-        log(get().dojo?.scroll?.kind === 'nono' ? '塗り間違い（ミス）' : '罠を開けた（ミス）', 'bad');
+        const k = get().dojo?.scroll?.kind ?? ui.lastKind;
+        log(k === 'nono' ? '塗り間違い（ミス）' : k === 'sudo' ? '置き間違い（ミス）' : k === 'beam' ? '鏡の置き間違い（ミス）' : '罠を開けた（ミス）', 'bad');
       } else if (e.type === 'parry') {
         log('受け流した（ミスにならない）');
       }
@@ -87,8 +93,16 @@ export function createDojoUI({ get, set, log }) {
     else if (a === 'card' || a === 'slot' || a === 'unslot' || a === 'left' || a === 'right') lineAct(s, a, b);
     else if (a === 'start') {
       const r = startScroll(s, ui.node);
-      if (r.ok) { set(r.state); ui.mode = r.state.dojo.scroll.kind === 'nono' ? 'paint1' : 'open'; ui.tech = null; ui.glow = null; ui.last = null; ui.quitAsk = false; } else log(r.reason);
+      if (r.ok) {
+        set(r.state);
+        const k = r.state.dojo.scroll.kind;
+        ui.lastKind = k;
+        ui.mode = k === 'nono' ? 'paint1' : k === 'sudo' ? 'place' : k === 'beam' ? 'slash' : 'open';
+        ui.elem = 0;
+        ui.tech = null; ui.glow = null; ui.last = null; ui.quitAsk = false;
+      } else log(r.reason);
     } else if (a === 'mode') { ui.mode = b.dataset.mode; ui.tech = null; }
+    else if (a === 'elem') { ui.elem = Number(b.dataset.elem); ui.tech = null; }
     else if (a === 'tech') {
       const t = b.dataset.tech;
       if (t === 'ukenagashi') {
@@ -141,6 +155,38 @@ export function createDojoUI({ get, set, log }) {
     if (!b) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(Number(b.dataset.mcell), false); }
     if (e.key === 'f' || e.key === 'F') { e.preventDefault(); act(Number(b.dataset.mcell), true); }
+  });
+
+  // ───── 魔法と弓の巻物の手（判定表 第18回 B3・C3）─────
+  // 魔法：属性を選んでからマスを押す（置く／候補の印）。弓：置く物（／・＼・×）を選んでからマスを押す。右クリックは×。
+  function placeAct(i, asX) {
+    const s = get();
+    const sc = s.dojo?.scroll;
+    if (!sc) return;
+    let r;
+    if (ui.tech) {
+      r = scrollTech(s, ui.tech, i);
+      ui.tech = null;
+    } else if (sc.kind === 'sudo') {
+      r = ui.mode === 'note' ? scrollNote(s, i, ui.elem ?? 0) : scrollPlace(s, i, ui.elem ?? 0);
+    } else if (sc.kind === 'beam') {
+      if (asX || ui.mode === 'x') r = scrollMark(s, i);
+      else r = scrollMirror(s, i, ui.mode === 'back' ? BACK : SLASH);
+    }
+    if (r?.ok) { set(r.state); handle(r.events); }
+    lastKey = '';
+    render();
+  }
+  side.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-scell], [data-bcell]');
+    if (!b || b.disabled) return;
+    placeAct(Number(b.dataset.scell ?? b.dataset.bcell), false);
+  });
+  side.addEventListener('contextmenu', (e) => {
+    const b = e.target.closest('[data-bcell]');
+    if (!b) return;
+    e.preventDefault();
+    placeAct(Number(b.dataset.bcell), true);
   });
 
   // ───── 並びのドラッグ・ドロップ（判定表 第10回 Q2：マージの盤と同じように） ─────
@@ -304,7 +350,8 @@ export function createDojoUI({ get, set, log }) {
     if (nodeOf(ui.node)?.school !== ui.school) ui.node = firstOf(ui.school);
     const t = nodeStats(s);
     const parts = Object.entries(t).filter(([, v]) => v > 0).map(([k, v]) => `${STAT[k]}${pct(v)}`);
-    const what = ui.school === 'sword' ? '剣の流派（巻物はピクロス）' : '守りの流派（巻物は罠の推理）';
+    const WHAT = { guard: '守りの流派（巻物は罠の推理）', sword: '剣の流派（巻物はピクロス）', magic: '魔法の流派（巻物は属性の数独）', bow: '弓の流派（巻物は鏡で光を通す）' };
+    const what = WHAT[ui.school];
     let h = schoolTabs(s) + `<p class="small">${what}。巻物を解くと熟練が入り、熟練${SKILL.perLevel}で節が1段上がる（解くと${3}、ミス1回につき −1）。<br>小さい節の強さ（流派の合計）：${parts.length ? parts.join('・') : 'まだない'}</p>`;
     if (ui.last) {
       const n = nodeOf(ui.last.node);
@@ -379,9 +426,60 @@ export function createDojoUI({ get, set, log }) {
     return h;
   }
 
+  function techBar(sc) {
+    const techs = Object.entries(sc.techs);
+    if (!techs.length) return '';
+    let h = '<div class="strikes">' + techs.map(([t, left]) => `<button type="button" class="opt${ui.tech === t ? ' sel' : ''}" data-dact="tech" data-tech="${t}" ${left > 0 ? '' : 'disabled'}>` +
+      `${ALL_TECHS[t].name}<small>あと${left}回</small></button>`).join('') + '</div>';
+    if (ui.tech) h += `<p class="small temp-note">${ALL_TECHS[ui.tech].text}。使うマスを押す（もう一度技を押すとやめる）</p>`;
+    return h;
+  }
+
+  // 魔法の巻物（属性の数独）
+  function sudoScrollHtml(s) {
+    const sc = s.dojo.scroll;
+    const p = sc.puzzle;
+    const n = nodeOf(sc.node);
+    let h = `<p class="sess-title"><b>${n.name}の巻物</b>（${sc.level}/5 → ${sc.level + 1}/5）</p>`;
+    const base = `<b>属性の数独</b>：各行・各列・太線の囲みに ${ELEMENT_NAMES.slice(0, p.n).join('・')} が1つずつ`;
+    h += `<p class="small scroll-rule">${base}${p.rules.map((r) => `<br><b>${SUDO_RULE_TEXT[r].name}</b>：${SUDO_RULE_TEXT[r].text}${r === 'react' && p.n === 6 ? '・火と風・水と土' : ''}`).join('')}</p>`;
+    if (!['place', 'note'].includes(ui.mode)) ui.mode = 'place';
+    if (!(ui.elem < p.n)) ui.elem = 0;
+    h += `<div class="dojo-bar"><span class="num">あと ${sudoLeft(sc)}マス　ミス ${sc.mistakes}</span>` +
+      `<span class="mode"><button type="button" data-dact="mode" data-mode="place" aria-pressed="${ui.mode === 'place' && !ui.tech}">置く</button>` +
+      `<button type="button" data-dact="mode" data-mode="note" aria-pressed="${ui.mode === 'note' && !ui.tech}">候補の印</button></span></div>`;
+    h += '<div class="elems">' + ELEMENT_NAMES.slice(0, p.n).map((name, e) =>
+      `<button type="button" class="elem e${e}" data-dact="elem" data-elem="${e}" aria-pressed="${ui.elem === e}">${name}</button>`).join('') + '</div>';
+    h += techBar(sc);
+    h += sudoBoardHtml(sc);
+    h += '<p class="small quiet">属性を選んでからマスを押す。「候補の印」は小さいメモで、ミスにならない（もう一度押すと消える）。</p>';
+    h += quitHtml();
+    return h;
+  }
+
+  // 弓の巻物（鏡で光を通す）
+  function beamScrollHtml(s) {
+    const sc = s.dojo.scroll;
+    const p = sc.puzzle;
+    const n = nodeOf(sc.node);
+    let h = `<p class="sess-title"><b>${n.name}の巻物</b>（${sc.level}/5 → ${sc.level + 1}/5）</p>`;
+    const base = '<b>鏡</b>：空いたマスに鏡（╱か╲）を置いて、弓の光を全部の的（◎）へ届ける。的には1本ずつ。置いた鏡には全部光が当たる。盤の外の数字はその行・列の鏡の数。岩は光を止める';
+    h += `<p class="small scroll-rule">${base}${p.rules.map((r) => `<br><b>${BEAM_RULE_TEXT[r].name}</b>：${BEAM_RULE_TEXT[r].text}`).join('')}</p>`;
+    if (!['slash', 'back', 'x'].includes(ui.mode)) ui.mode = 'slash';
+    h += `<div class="dojo-bar"><span class="num">鏡 あと ${beamLeft(sc)}　ミス ${sc.mistakes}</span>` +
+      `<span class="mode">${[['slash', '╱を置く'], ['back', '╲を置く'], ['x', '×']].map(([m, t]) => `<button type="button" data-dact="mode" data-mode="${m}" aria-pressed="${ui.mode === m && !ui.tech}">${t}</button>`).join('')}</span></div>`;
+    h += techBar(sc);
+    h += beamBoardHtml(sc);
+    h += '<p class="small quiet">光は今置いてある鏡でその場で通る（色の付いたマス）。届いた的は ◉。右クリックで×（自分の印）。濃い×は分かった空き。小さい数字は狙い撃ち（まわり8マスの鏡の数）。</p>';
+    h += quitHtml();
+    return h;
+  }
+
   function scrollHtml(s) {
     const sc = s.dojo.scroll;
     if (sc.kind === 'nono') return nonoScrollHtml(s);
+    if (sc.kind === 'sudo') return sudoScrollHtml(s);
+    if (sc.kind === 'beam') return beamScrollHtml(s);
     const p = sc.puzzle;
     const n = nodeOf(sc.node);
     let h = `<p class="sess-title"><b>${n.name}の巻物</b>（${sc.level}/5 → ${sc.level + 1}/5）</p>`;

@@ -49,12 +49,19 @@ test('守りは14節（合流の剣盾は剣の木へ）。根だけが最初か
   assert.equal(isNodeOpen(s, 'mikiri'), false);
 });
 
-test('奥義は3本の枝の先の節のうち2つ、剣盾は剣の流派まで閉じている', () => {
+test('奥義は3本の枝の先の節のうち2つが 3/5 で開く（第18回 G2）、剣盾は剣の流派まで閉じている', () => {
   const s = opened();
-  s.dojo.nodes.tategamae = { skill: 2 };
+  s.dojo.nodes.tategamae = { skill: 6 };
   assert.equal(isNodeOpen(s, 'shingan'), false);
   s.dojo.nodes.tame = { skill: 2 };
+  assert.equal(isNodeOpen(s, 'shingan'), false, '1/5 では開かない');
+  assert.match(scrollCheck(s, 'shingan').reason, /3\/5/);
+  s.dojo.nodes.tame = { skill: 6 };
   assert.equal(isNodeOpen(s, 'shingan'), true);
+  // 前の決まりで開いて熟練が入っていれば、そのまま開いている
+  const old = opened();
+  old.dojo.nodes.shingan = { skill: 1 };
+  assert.equal(isNodeOpen(old, 'shingan'), true);
   s.dojo.nodes.tateuchi = { skill: 2 };
   assert.equal(isNodeOpen(s, 'kenjun'), false);
   assert.match(scrollCheck(s, 'kenjun').reason, /剣/);
@@ -91,7 +98,7 @@ test('どの節のどの段の巻物も作れて、推理だけで解ける（�
     if (n.locked) continue;
     for (let lv = 0; lv < 5; lv++) {
       const s = opened();
-      for (const x of GUARD_TREE) s.dojo.nodes[x.id] = { skill: Math.max(2, lv * 2) };
+      for (const x of GUARD_TREE) s.dojo.nodes[x.id] = { skill: Math.max(6, lv * 2) };
       s.dojo.nodes[n.id] = { skill: lv * 2 };
       const r = startScroll(s, n.id);
       assert.ok(r.ok, `${n.name} ${lv}/5：${r.reason}`);
@@ -145,7 +152,7 @@ test('修行中の技：その節の技は段＋1回、ほかに覚えた技は1
 
 test('技の効き：見切り・盾構え・盾打ち・受け流し・心眼', () => {
   const s = opened();
-  s.dojo.nodes = { kamae: { skill: 2 }, uke: { skill: 2 }, mikiri: { skill: 2 }, hada: { skill: 2 }, tategamae: { skill: 2 }, kaeshi: { skill: 2 }, tateuchi: { skill: 2 }, ibuki: { skill: 2 }, ukenagashi: { skill: 2 }, fumikomi: { skill: 2 }, kizu: { skill: 2 }, seishin: { skill: 2 }, tame: { skill: 2 } };
+  s.dojo.nodes = { kamae: { skill: 2 }, uke: { skill: 2 }, mikiri: { skill: 2 }, hada: { skill: 2 }, tategamae: { skill: 6 }, kaeshi: { skill: 2 }, tateuchi: { skill: 2 }, ibuki: { skill: 2 }, ukenagashi: { skill: 2 }, fumikomi: { skill: 2 }, kizu: { skill: 2 }, seishin: { skill: 2 }, tame: { skill: 6 } };
   let st = startScroll(s, 'shingan').state;
   const p = st.dojo.scroll.puzzle;
   const mine = p.mines.findIndex(Boolean);

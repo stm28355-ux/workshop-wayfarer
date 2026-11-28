@@ -430,3 +430,44 @@ dialog li { margin-bottom: 6px; }
 /* 打てる印（判定表 第16回 D1） */
 .mid-go.can, #tab-2.can { border-color: var(--good); color: var(--good); }
 .can-list .opt { border-color: color-mix(in srgb, var(--good) 50%, var(--line)); }
+
+/* 魔法の巻物（属性の数独）・弓の巻物（鏡）判定表 第18回 */
+.e0 { --ec: #e2623f; } .e1 { --ec: #4a8fe0; } .e2 { --ec: #7fc8e8; } .e3 { --ec: #e8c84a; } .e4 { --ec: #8fd18f; } .e5 { --ec: #a68d70; }
+.elems { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.elem { min-width: 44px; min-height: 40px; border-radius: 8px; border: 2px solid var(--ec); background: #2a2f37; color: var(--ec); font-weight: 700; font-size: 1.05rem; cursor: pointer; }
+.elem[aria-pressed="true"] { background: var(--ec); color: #14171c; }
+.sudo-wrap { position: relative; width: min(100%, calc(var(--n) * 58px)); aspect-ratio: 1; margin: 6px 0; }
+.sudo { display: grid; grid-template-columns: repeat(var(--n), 1fr); grid-template-rows: repeat(var(--n), 1fr); width: 100%; height: 100%; border: 2px solid var(--ink); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.sc { position: relative; border: 1px solid var(--line); background: #2a2f37; color: var(--ec, var(--ink)); font-size: 1.15rem; font-weight: 700; cursor: pointer; padding: 0; min-width: 0; }
+.sc.br { border-right: 2px solid var(--ink); }
+.sc.bb { border-bottom: 2px solid var(--ink); }
+.sc.given { background: #1d2127; }
+.sc.wrong { background: rgb(232 138 106 / 0.35); }
+.sc .notes { position: absolute; inset: 2px; display: flex; flex-wrap: wrap; gap: 1px; align-content: flex-start; pointer-events: none; }
+.sc .notes i { font-style: normal; font-size: 0.6rem; color: var(--ec); line-height: 1; }
+.sudo-over { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); pointer-events: none; }
+.sudo-over .cage line { stroke: var(--accent); stroke-width: 0.03; stroke-dasharray: 0.08 0.06; }
+.sudo-over .cycle polyline { fill: none; stroke: #c58af9; stroke-width: 0.12; stroke-linejoin: round; stroke-linecap: round; opacity: 0.55; }
+.sudo-over .cycle circle { fill: #c58af9; }
+.sudo-over .react rect { fill: var(--accent); stroke: #14171c; stroke-width: 0.03; }
+.beam-wrap { position: relative; width: min(100%, calc((var(--w) + 3) * 46px)); margin: 6px 0; }
+.beam { display: grid; grid-template-columns: repeat(calc(var(--w) + 3), 1fr); width: 100%; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.beam > * { aspect-ratio: 1; min-width: 0; }
+.beam-over { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.beam-over polyline { fill: none; stroke-width: 0.12; stroke-linejoin: round; stroke-linecap: round; opacity: 0.8; stroke: #f2c76e; }
+.beam-over polyline.red { stroke: #f07a5a; } .beam-over polyline.blue { stroke: #6fa8f0; }
+.bcnt { display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.bp { display: flex; align-items: center; justify-content: center; min-height: 1.6em; font-size: 0.85rem; font-weight: 700; color: var(--quiet); white-space: nowrap; }
+.bp small { font-size: 0.7rem; margin-left: 1px; }
+.bp.bow { color: var(--ink); }
+.bp.target { color: var(--ink); font-size: 1.1rem; }
+.bp.target.hit { color: var(--good); }
+.bp.red { color: #f07a5a; } .bp.blue { color: #6fa8f0; }
+.bp.target.hit.red, .bp.target.hit.blue { text-shadow: 0 0 6px currentColor; }
+.bc { position: relative; margin: 2px; border-radius: 6px; border: 1px solid var(--line); background: #2a2f37; color: var(--ink); font-size: 1.4rem; font-weight: 700; cursor: pointer; padding: 0; }
+.bc.rock { background: #15181c; border-color: #15181c; color: #8a8f98; font-size: 0.85rem; cursor: default; }
+.bc.given { box-shadow: 0 0 0 2px #5b6370 inset; }
+.bc.x { color: var(--quiet); font-size: 1rem; }
+.bc.sure { background: #1a1e24; color: var(--ink); }
+.bc.wrong { border-color: var(--bad); }
+.bc .hint { position: absolute; left: 2px; bottom: 1px; font-style: normal; font-size: 0.6rem; color: var(--accent); font-weight: 600; }

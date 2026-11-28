@@ -24,7 +24,9 @@ const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
 // ?test=auto は門下生と振り分けが来ている状態（第11回 D5）。
 // ?test=sword は地域2のボスの後で、剣の節が全部 1/5（札が全部使える）、連撃・十字斬り・範囲化が 3/5（枠6）。坑道から出発。
 // ?test=forge3 は地域3のボスの後（打ち分けの職人が来ている）、銅・鉄・魔銀と欠片がたまっていて、格3・4 と燃料の叩き方を試せる（判定表 第16回 E2）。
-const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto', 'sword', 'forge3'].includes(params.get('test')) ? params.get('test') : null;
+// ?test=magic は ?test=forge3 と同じ所から、魔法と弓の流派が開いていて、巻物の形を一通り試せる（判定表 第19回）。
+//   魔法：火球・雷撃は 4×4 の変えあり、火の心・氷の槍は 6×6。弓：連射・風の矢は 5×5 の変えあり、早手・狙い撃ちは 7×7。
+const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto', 'sword', 'forge3', 'magic'].includes(params.get('test')) ? params.get('test') : null;
 const SLOT = TEST ? `test-${TEST}` : undefined;
 const TICK_MS = 1000 / TICKS_PER_SEC;
 const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
@@ -47,6 +49,15 @@ function testState(mode) {
   if (mode === 'r3') return planAfterRegion2();
   if (mode === 'auto') return autoState();
   if (mode === 'forge3') return forge3State();
+  if (mode === 'magic') {
+    const s = forge3State();
+    const skill = {
+      eishou: 2, hinokokoro: 4, mizunokokoro: 2, hyoso: 4, ikazuchinokokoro: 2,
+      tsuru: 2, hayate: 4, me: 2, neraiuchi: 4, kazeyomi: 2,
+    };
+    for (const [id, v] of Object.entries(skill)) s.dojo.nodes[id] = { skill: v };
+    return s;
+  }
   const s = createGame();
   const upto = { open: 1, dojo: 2, line: 2, all: 3, sword: 2 }[mode];
   for (let id = 1; id <= upto; id++) {
