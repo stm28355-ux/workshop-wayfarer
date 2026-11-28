@@ -69,14 +69,15 @@ export function lampsBoardHtml(sc) {
     const lamp = !!sc.placed[i];
     const sure = sc.sureX.includes(i);
     const mark = sc.xs.includes(i);
+    // 照らされているかは×のマスでも見せる（判定表 第20回 Q2：ミスしたマスが照らされているか分からない）
     if (lamp) cls.push('lamp');
     else if (lit.has(i)) cls.push('lit');
     if (sure || mark) cls.push('x');
     if (sure) cls.push('sure');
     if (sc.wrong.includes(i)) cls.push('wrong');
     const hint = hintAt.get(i);
-    const label = lamp ? '灯り' : sure ? '置かない（確か）' : mark ? '×' : lit.has(i) ? '照らされている' : 'まだ';
-    cells += `<button type="button" class="${cls.join(' ')}" data-lcell="${i}" aria-label="${label}">${lamp ? '灯' : sure || mark ? '×' : ''}${hint ? `<i class="hint">${hint.value}</i>` : ''}</button>`;
+    const label = lamp ? '灯り' : `${sure ? '置かない（確か）' : mark ? '×' : 'まだ'}${lit.has(i) ? '・照らされている' : ''}`;
+    cells += `<button type="button" class="${cls.join(' ')}" data-lcell="${i}" aria-label="${label}">${lamp ? '灯' : sure || mark ? '×' : ''}${hint ? `<i class="hint">まわり${hint.value}</i>` : ''}</button>`;
   }
   return `<div class="lamps" style="--w:${p.w}" role="grid" aria-label="巻物の盤">${cells}</div>`;
 }

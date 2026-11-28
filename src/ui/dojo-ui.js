@@ -535,7 +535,7 @@ export function createDojoUI({ get, set, log }) {
     h += techBar(sc);
     h += beamBoardHtml(sc);
     h += '<p class="small quiet">こつ：数が0の行と列には鏡がない。弓から光をたどり、曲がれる所（その行と列に鏡が残っている所）を探す。数は置いた鏡と合うと緑、超えると赤。</p>';
-    h += '<p class="small quiet">光は今置いてある鏡でその場で線で通る。届いた的は ◉。右クリックで×（自分の印）。濃い×は分かった空き。小さい数字は狙い撃ち（まわり8マスの鏡の数）。盤の上でマウスホイールを回すと ╱・╲・× が変わる。</p>';
+    h += '<p class="small quiet">光は今置いてある鏡でその場で線で通る。届いた的は ◉。右クリックで×（自分の印）。濃い×は分かった空き。「まわり◯」は狙い撃ち（選んだマスのまわり8マスの鏡の数。選んだマスは数えない）。盤の上でマウスホイールを回すと ╱・╲・× が変わる。</p>';
     h += quitHtml();
     return h;
   }
@@ -570,7 +570,7 @@ export function createDojoUI({ get, set, log }) {
       `<span class="mode">${[['lamp', '灯りを置く'], ['x', '×']].map(([m, t]) => `<button type="button" data-dact="mode" data-mode="${m}" aria-pressed="${ui.mode === m && !ui.tech}">${t}</button>`).join('')}</span></div>`;
     h += techBar(sc);
     h += lampsBoardHtml(sc);
-    h += '<p class="small quiet">照らされたマスは明るくなる。右クリックで×（自分の印）。濃い×は分かった「置かない」。盤の上でマウスホイールを回すと 灯り・× が変わる。小さい数字は影縫い（まわり8マスの灯りの数）。</p>';
+    h += '<p class="small quiet">照らされたマスは明るくなる（×のマスも、照らされていれば明るい）。右クリックで×（自分の印）。濃い×は分かった「置かない」。盤の上でマウスホイールを回すと 灯り・× が変わる。「まわり◯」は影縫い（選んだマスのまわり8マスの灯りの数。選んだマスは数えない）。</p>';
     h += quitHtml();
     return h;
   }

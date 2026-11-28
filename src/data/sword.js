@@ -40,7 +40,7 @@ export const SWORD_TREE = Object.freeze([
 export const SWORD_TECHS = Object.freeze({
   renda: { name: '連撃', text: '選んだマスから右へ3マスの答えが分かる' },
   jujigiri: { name: '十字斬り', text: '選んだマスと上下左右の5マスの答えが分かる' },
-  shukketsu: { name: '出血の刃', text: '選んだマスのまわり8マスに、塗るマスがいくつあるか分かる' },
+  shukketsu: { name: '出血の刃', text: '選んだマスのまわり8マス（選んだマスは数えない）に、塗るマスがいくつあるか分かる' },
   issen: { name: '一閃', text: '選んだマスの行の答えが全部分かる' },
   kenjun: { name: '剣盾', text: '選んだマスから右下の2×2の答えが分かる' },
 });

@@ -143,7 +143,7 @@ export function beamBoardHtml(sc) {
       const glyph = v === ROCK ? '岩' : v === SLASH ? '╱' : v === BACK ? '╲' : sure || mark ? '×' : '';
       const hint = hintAt.get(i);
       const label = v === ROCK ? '岩' : v === SLASH ? '鏡／' : v === BACK ? '鏡＼' : sure ? '空き（確か）' : mark ? '×' : 'まだ';
-      g += `<button type="button" class="${cls.join(' ')}" data-bcell="${i}" aria-label="${label}"${v === ROCK ? ' disabled' : ''}>${glyph}${hint ? `<i class="hint">${hint.value}</i>` : ''}</button>`;
+      g += `<button type="button" class="${cls.join(' ')}" data-bcell="${i}" aria-label="${label}"${v === ROCK ? ' disabled' : ''}>${glyph}${hint ? `<i class="hint">まわり${hint.value}</i>` : ''}</button>`;
     }
     g += portHtml('right', y);
   }
