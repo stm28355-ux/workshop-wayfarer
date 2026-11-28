@@ -150,11 +150,11 @@ export function createAutoUI({ get, set, log }) {
     const fed = st.fed;
     if (fed) {
       const past = fed.past ?? [];
-      h += `<h3>出口に入れた価値</h3><table class="ledger-table"><thead><tr><th>出口</th><th>手</th><th>振り分け</th><th>${past.length ? `直近${past.length}分の毎分` : '毎分（1分たつと出る）'}</th></tr></thead><tbody>`;
+      h += `<h3>出口に入れた価値</h3><table class="ledger-table"><thead><tr><th>出口</th><th>手</th><th>振り分け</th><th>あふれ</th><th>${past.length ? `直近${past.length}分の毎分` : '毎分（1分たつと出る）'}</th></tr></thead><tbody>`;
       for (const x of EXITS) {
         if (!s.open.exits.includes(x)) continue;
         const per = past.length ? Math.round(past.reduce((a, m) => a + (m[x] ?? 0), 0) / past.length) : '―';
-        h += `<tr><td>${EXIT_NAMES[x]}</td><td class="num">${fed.hand[x]}</td><td class="num">${fed.split[x]}</td><td class="num">${per}</td></tr>`;
+        h += `<tr><td>${EXIT_NAMES[x]}</td><td class="num">${fed.hand[x]}</td><td class="num">${fed.split[x]}</td><td class="num">${x === 'prep' ? fed.overflow?.prep ?? 0 : '―'}</td><td class="num">${per}</td></tr>`;
       }
       h += '</tbody></table>';
     }

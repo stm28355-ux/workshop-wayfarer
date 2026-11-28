@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>剣の巻物の試し · Workshop Wayfarer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <h1>剣の巻物の試し</h1>
+  <span class="tag">工程7a：剣の巻物（ピクロス）6問（判定表 第14回）</span>
+  <nav class="tools"><a class="link-btn" href="./">ゲームへ戻る</a></nav>
+</header>
+
+<main id="dojo" class="dojo">
+  <section class="dojo-list" aria-label="問題">
+    <div id="scroll-list" class="scroll-list"></div>
+  </section>
+
+  <section class="dojo-main" aria-label="巻物">
+    <h2 id="scroll-name"></h2>
+    <p id="scroll-rule" class="scroll-rule"></p>
+    <div class="dojo-bar">
+      <span class="num" id="paint-count"></span>
+      <span class="num" id="mistakes"></span>
+      <span class="num" id="clock"></span>
+      <span class="mode" role="group" aria-label="押したときの動き" id="modes"></span>
+    </div>
+    <div id="nono" class="nono" role="grid" aria-label="巻物の盤"></div>
+    <p id="dojo-note" class="dojo-note quiet"></p>
+    <div id="dojo-result" class="dojo-result" hidden></div>
+    <p class="small"><button type="button" id="btn-retry" class="mini wide">この巻物をやり直す</button></p>
+  </section>
+
+  <section class="dojo-help" aria-label="遊び方">
+    <h2>遊び方</h2>
+    <ul class="small">
+      <li>行の左と列の上の数字は、その線で<b>続けて塗るマスの長さ</b>を順に並べたもの（「2 1」なら2マス塗り、1マス以上あけて1マス塗る）。数字に合うように、塗るマスを全部塗れば解けた。</li>
+      <li>塗らないと分かったマスには<b>×</b>を付けてよい（右クリック・長押し・「×」）。×は自分用のメモで、間違えてもミスにならない。</li>
+      <li>塗ったマスが答えと違うと<b>ミス</b>（そのマスは正しい形に直る）。続けられるが熟練が減る（解くと熟練3、ミス1回につき −1、最低1）。</li>
+      <li>押したまま動かすと、続けて塗る・×を付けられる。数字がそろった線は数字が薄くなる。</li>
+      <li><b>色</b>：赤と青の2色。数字も色つき。同じ色の塗りは1マス以上あけるが、違う色はくっついてよい。</li>
+      <li><b>合計</b>：◆の付いた線は、塗りの長さでなく、塗るマスの合計だけが出る（色の巻物では色ごと）。</li>
+      <li><b>鏡</b>：答えの絵は左右対称（真ん中の線で折り返すと重なる）。</li>
+      <li>どの巻物も、当てずっぽうなしに推理だけで解ける（答えは1つ）。</li>
+    </ul>
+    <p class="version small quiet">版 <span id="version"></span></p>
+  </section>
+</main>
+
+<script type="module" src="src/ui/sword-trial.js"></script>
+</body>
+</html>

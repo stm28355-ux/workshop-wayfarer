@@ -135,6 +135,7 @@ function pickUp(s, item, events) {
   if (r.index === null) {
     s.stats.overflow += 1;
     s.run.prep += itemValue(item) * PREP.perValue;
+    noteFed(s, 'prep', itemValue(item), 'overflow');
     events.push({ type: 'overflow', item });
   } else {
     s.board = r.board;
@@ -157,11 +158,14 @@ function applyUnlock(s, key, events) {
 
 // 帳簿の数（判定表 第11回 C1）：出口ごとに入れた価値（手・振り分け）と、直近の分ごと。
 function newFed() {
-  return { hand: { prep: 0, grow: 0, forge: 0, workshop: 0 }, split: { prep: 0, grow: 0, forge: 0, workshop: 0 }, minute: -1, now: null, past: [] };
+  const z = () => ({ prep: 0, grow: 0, forge: 0, workshop: 0 });
+  // overflow：盤がいっぱいで拾った物がそのまま支度に入った分（判定表 第13回 D1）
+  return { hand: z(), split: z(), overflow: z(), minute: -1, now: null, past: [] };
 }
 function noteFed(s, exit, value, by) {
   if (!s.stats.fed) s.stats.fed = newFed();
   const f = s.stats.fed;
+  if (!f[by]) f[by] = { prep: 0, grow: 0, forge: 0, workshop: 0 };
   f[by][exit] += value;
   const m = Math.floor(s.tick / (60 * TICKS_PER_SEC));
   if (f.minute !== m) {
