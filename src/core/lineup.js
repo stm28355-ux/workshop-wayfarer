@@ -130,7 +130,8 @@ export function heroAct(ctx) {
         time *= tm;
       }
       line.pos += 1;
-      f.heroCd = Math.max(1, time * hero.attackTicks);
+      // 時間の端数は捨てずに次へ持ち越す（攻撃の速さの小さい伸びも効くように）
+      f.heroCd += Math.max(1, time * hero.attackTicks);
       if (line.pos >= cards.length) {
         // 最後の札が終わってから積み直し
         line.pos = 0;
@@ -140,7 +141,7 @@ export function heroAct(ctx) {
     }
   }
   // 普通の攻撃
-  f.heroCd = hero.attackTicks;
+  f.heroCd += hero.attackTicks; // 端数を持ち越す
   return hitEnemy(f, hero.atk, ctx.tick);
 }
 

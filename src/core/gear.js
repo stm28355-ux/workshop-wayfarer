@@ -101,6 +101,12 @@ export function heroStats(state) {
   };
 }
 
+// 攻撃の間（秒）を見せるとき：0.01秒の単位で切り上げる（判定表 第10回の一言）。
+export function intervalText(ticks, perSec = 10) {
+  const sec = Math.ceil((ticks / perSec) * 100 - 1e-9) / 100;
+  return String(sec);
+}
+
 // 受けるダメージ：盾で引く。どれだけ引いても元の2割は通る。
 export function damageTaken(atk, guard) {
   return Math.max(atk * 0.2, atk - guard);

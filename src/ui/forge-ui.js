@@ -3,7 +3,7 @@ import {
   isOpen, slotsOf, fuelPower, forgeCheck, forgeStart, forgeStrike, forgeFire, forgeFinish,
   equipItem, setForgeAuto, upgradeCheck, buyUpgrade, widenTo, mergeCrafterTicks, mergeCrafterRank,
 } from '../core/game.js';
-import { planOf, mainValue, heroStats, itemKey, baseOf, statOf } from '../core/gear.js';
+import { planOf, mainValue, heroStats, itemKey, baseOf, statOf, intervalText } from '../core/gear.js';
 import { preview, canStrike, canFire, score, cellQuality, strikeAmount } from '../core/forge.js';
 import { GEAR, SLOTS, STRIKES, TEMPS, GEAR_KINDS, gearCost, bandOf } from '../data/forge.js';
 import { KINDS, WORKSHOP, TICKS_PER_SEC } from '../data/balance.js';
@@ -242,7 +242,7 @@ export function createForgeUI({ get, set, log }) {
     const st = heroStats(s);
     const items = Object.entries(s.gear.items);
     let h = '<h3>装備</h3>';
-    h += `<p class="num small">攻撃 ${r1(st.atk)}（${r1(st.attackTicks / TICKS_PER_SEC)}秒に1回）　HP ${Math.round(st.maxHp)}${st.guard ? `　受けるダメージ−${r1(st.guard)}` : ''}</p>`;
+    h += `<p class="num small">攻撃 ${r1(st.atk)}（${intervalText(st.attackTicks, TICKS_PER_SEC)}秒に1回）　HP ${Math.round(st.maxHp)}${st.guard ? `　受けるダメージ−${r1(st.guard)}` : ''}</p>`;
     if (items.length === 0) return h + '<p class="quiet small">まだ何も打っていない。</p>';
     h += '<p class="quiet small">下の数値はレベルの倍率がかかる前（上の合計はかかった後）。</p>';
     for (const slot of ['weapon', 'armor']) {
