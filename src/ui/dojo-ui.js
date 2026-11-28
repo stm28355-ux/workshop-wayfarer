@@ -1,33 +1,41 @@
-// 段3 道場の画面：守りのスキルツリーと巻物。ルールは src/core/dojo.js・scroll.js を呼ぶだけ。
+// 段3 道場の画面：流派（守り・剣）のスキルツリーと巻物、技の並び。ルールは src/core/dojo.js・scroll.js・nonogram.js を呼ぶだけ。
 import {
   levelOf, skillOf, isNodeOpen, nodeStats, scrollSpec, scrollCheck, startScroll, scrollOpen, scrollFlag, scrollTech, quitScroll, nodeOf, LEVEL_MAX, shapeKey,
+  scrollPaint, scrollMark, schoolOpen,
 } from '../core/dojo.js';
+import { NONO_RULES } from '../core/nonogram.js';
+import { nonoBoardHtml } from './nono-view.js';
+import { SCHOOLS, ALL_TECHS } from '../data/schools.js';
 import { numberAt, areaOf, RULES } from '../core/scroll.js';
-import { GUARD_TREE, TECHS, SKILL } from '../data/dojo.js';
-import { CARDS, LINEUP } from '../data/cards.js';
+import { TECHS, SKILL } from '../data/dojo.js';
+import { CARDS, LINEUP, CARD_KINDS } from '../data/cards.js';
 import { REGIONS } from '../data/balance.js';
 import { availableCards, slotCount, lineupFor, setLineup, compareDummy, cardLevel, DUMMIES } from '../core/lineup.js';
 
 const $ = (id) => document.getElementById(id);
 const pct = (v) => `${Math.round(v * 1000) / 10}%`;
 const KIND = { small: '小', tech: '技', card: '札', secret: '奥義', cross: '合流' };
-const STAT = { hp: '最大HP ＋', atk: '攻撃 ＋', taken: '受けるダメージ −', regen: '歩く間の回復 ＋', speed: '攻撃の速さ ＋' };
+const STAT = { hp: '最大HP ＋', atk: '攻撃 ＋', taken: '受けるダメージ −', regen: '歩く間の回復 ＋', speed: '攻撃の速さ ＋', bleed: '出血のダメージ ＋' };
 
 export function createDojoUI({ get, set, log }) {
-  const ui = { node: 'kamae', mode: 'open', tech: null, glow: null, last: null, view: 'tree', region: null, pick: null, slot: null };
+  const ui = { node: 'kamae', school: 'guard', mode: 'open', tech: null, glow: null, last: null, view: 'tree', region: null, pick: null, slot: null };
+  const firstOf = (school) => SCHOOLS[school].tree[0].id;
   let lastKey = '';
   const side = $('dojo-side');
 
   function nodeEffect(n) {
     if (n.stat) return Object.entries(n.stat).map(([k, v]) => `${STAT[k]}${pct(v)}／段`).join('・');
-    if (n.tech) return `技「${TECHS[n.tech].name}」：${TECHS[n.tech].text}（戦いでの効きは工程5）`;
-    if (n.text) return n.text + '（工程5）';
+    const card = CARDS[n.id];
+    if (n.tech) return `巻物の技「${ALL_TECHS[n.tech].name}」：${ALL_TECHS[n.tech].text}${card ? `<br>戦いの札：${card.text}` : ''}`;
+    if (card) return `${CARD_KINDS[card.type]}の札：${card.text}`;
+    if (n.text) return n.text;
     return n.locked ?? '';
   }
 
   function specText(spec) {
-    const rules = spec.rules.length ? spec.rules.map((r) => RULES[r].name).join('＋') : '変えなし';
-    return `${spec.w}×${spec.h}・${rules}・罠${spec.count}`;
+    const names = (r) => (RULES[r] ?? NONO_RULES[r]).name;
+    const rules = spec.rules.length ? spec.rules.map(names).join('＋') : '変えなし';
+    return spec.kind === 'nono' ? `ピクロス ${spec.w}×${spec.h}・${rules}` : `${spec.w}×${spec.h}・${rules}・罠${spec.count}`;
   }
 
   function handle(events) {
@@ -37,7 +45,7 @@ export function createDojoUI({ get, set, log }) {
         ui.last = e;
         log(`${n.name}の巻物を解いた（熟練＋${e.gain}${e.mistakes ? `・ミス${e.mistakes}` : ''}）${e.to > e.from ? `　${e.to}/5 に上がった` : ''}`, 'good');
       } else if (e.type === 'miss') {
-        log('罠を開けた（ミス）', 'bad');
+        log(get().dojo?.scroll?.kind === 'nono' ? '塗り間違い（ミス）' : '罠を開けた（ミス）', 'bad');
       } else if (e.type === 'parry') {
         log('受け流した（ミスにならない）');
       }
@@ -74,11 +82,12 @@ export function createDojoUI({ get, set, log }) {
     const s = get();
     const a = b.dataset.dact;
     if (a === 'node') { ui.node = b.dataset.node; ui.last = null; }
+    else if (a === 'school') { ui.school = b.dataset.school; ui.node = firstOf(ui.school); ui.last = null; }
     else if (a === 'view') { ui.view = b.dataset.view; ui.pick = null; ui.slot = null; }
     else if (a === 'card' || a === 'slot' || a === 'unslot' || a === 'left' || a === 'right') lineAct(s, a, b);
     else if (a === 'start') {
       const r = startScroll(s, ui.node);
-      if (r.ok) { set(r.state); ui.mode = 'open'; ui.tech = null; ui.glow = null; ui.last = null; } else log(r.reason);
+      if (r.ok) { set(r.state); ui.mode = r.state.dojo.scroll.kind === 'nono' ? 'paint1' : 'open'; ui.tech = null; ui.glow = null; ui.last = null; } else log(r.reason);
     } else if (a === 'mode') { ui.mode = b.dataset.mode; ui.tech = null; }
     else if (a === 'tech') {
       const t = b.dataset.tech;
@@ -200,6 +209,69 @@ export function createDojoUI({ get, set, log }) {
     if (skipClick) { skipClick = false; e.stopImmediatePropagation(); }
   }, true);
 
+  // ───── 剣の巻物の手：塗る・×、押したまま動かすと続ける（判定表 第14回） ─────
+  let stroke = null; // { kind: 'paint'|'x', color, on, done: Set }
+  function nonoApply(i) {
+    if (!stroke || stroke.done.has(i)) return;
+    stroke.done.add(i);
+    const s = get();
+    if (!s.dojo?.scroll || s.dojo.scroll.kind !== 'nono') return;
+    if (stroke.kind === 'paint') {
+      const r = scrollPaint(s, i, stroke.color);
+      if (r.ok) { set(r.state); handle(r.events); }
+    } else {
+      const r = scrollMark(s, i, stroke.on);
+      if (r.ok) set(r.state);
+    }
+  }
+  function nonoBegin(i, asX) {
+    const s = get();
+    const sc = s.dojo?.scroll;
+    if (!sc || sc.kind !== 'nono') return;
+    if (ui.tech) {
+      const r = scrollTech(s, ui.tech, i);
+      ui.tech = null;
+      if (r.ok) { set(r.state); handle(r.events); }
+      lastKey = '';
+      render();
+      return;
+    }
+    if (asX || ui.mode === 'x') stroke = { kind: 'x', on: !sc.xs.includes(i), done: new Set() };
+    else stroke = { kind: 'paint', color: ui.mode === 'paint2' ? 2 : 1, done: new Set() };
+    nonoApply(i);
+    lastKey = '';
+    render();
+  }
+  let nlong = null;
+  side.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('[data-ncell]');
+    if (!b) return;
+    e.preventDefault();
+    const i = Number(b.dataset.ncell);
+    if (e.button === 2) { nonoBegin(i, true); return; }
+    if (e.pointerType === 'touch') {
+      nlong = { i, timer: setTimeout(() => { nlong = null; nonoBegin(i, true); }, 450) };
+      return;
+    }
+    nonoBegin(i, false);
+  });
+  window.addEventListener('pointermove', (e) => {
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('#dojo-side [data-ncell]');
+    if (nlong) {
+      if (el && Number(el.dataset.ncell) !== nlong.i) { clearTimeout(nlong.timer); const i = nlong.i; nlong = null; nonoBegin(i, false); }
+      else return;
+    }
+    if (!stroke || !el) return;
+    nonoApply(Number(el.dataset.ncell));
+    lastKey = '';
+    render();
+  });
+  window.addEventListener('pointerup', () => {
+    if (nlong) { clearTimeout(nlong.timer); const i = nlong.i; nlong = null; nonoBegin(i, false); }
+    if (stroke) { stroke = null; lastKey = ''; render(); }
+  });
+  side.addEventListener('contextmenu', (e) => { if (e.target.closest('[data-ncell]')) e.preventDefault(); });
+
   // ───── 描く ─────
   function render() {
     const s = get();
@@ -214,19 +286,29 @@ export function createDojoUI({ get, set, log }) {
     $('dojo-body').innerHTML = s.dojo.scroll ? scrollHtml(s) : viewTabs() + (ui.view === 'line' ? lineHtml(s) : treeHtml(s));
   }
 
+  function schoolTabs(s) {
+    const open = Object.keys(SCHOOLS).filter((k) => schoolOpen(s, k));
+    if (open.length < 2) return '';
+    return '<div class="view-tabs school-tabs">' + open.map((k) =>
+      `<button type="button" data-dact="school" data-school="${k}" aria-pressed="${ui.school === k}">${SCHOOLS[k].name}</button>`).join('') + '</div>';
+  }
+
   function treeHtml(s) {
+    if (!schoolOpen(s, ui.school)) { ui.school = 'guard'; ui.node = firstOf('guard'); }
+    const school = SCHOOLS[ui.school];
+    if (nodeOf(ui.node)?.school !== ui.school) ui.node = firstOf(ui.school);
     const t = nodeStats(s);
     const parts = Object.entries(t).filter(([, v]) => v > 0).map(([k, v]) => `${STAT[k]}${pct(v)}`);
-    let h = `<p class="small">守りの流派。巻物を解くと熟練が入り、熟練${SKILL.perLevel}で節が1段上がる（解くと${3}、ミス1回につき −1）。<br>小さい節の強さ：${parts.length ? parts.join('・') : 'まだない'}</p>`;
+    const what = ui.school === 'sword' ? '剣の流派（巻物はピクロス）' : '守りの流派（巻物は罠の推理）';
+    let h = schoolTabs(s) + `<p class="small">${what}。巻物を解くと熟練が入り、熟練${SKILL.perLevel}で節が1段上がる（解くと${3}、ミス1回につき −1）。<br>小さい節の強さ（流派の合計）：${parts.length ? parts.join('・') : 'まだない'}</p>`;
     if (ui.last) {
       const n = nodeOf(ui.last.node);
       h += `<p class="result">${n.name}：熟練＋${ui.last.gain}${ui.last.to > ui.last.from ? `、${ui.last.to}/5 に上がった` : ''}</p>`;
     }
-    const branches = ['根', '受け', '返し', '息吹', '奥'];
     h += '<div class="tree">';
-    for (const br of branches) {
+    for (const br of school.branches) {
       h += `<div class="branch"><span class="branch-name">${br}</span><div class="branch-nodes">`;
-      for (const n of GUARD_TREE.filter((x) => x.branch === br)) {
+      for (const n of school.tree.filter((x) => x.branch === br)) {
         const lv = levelOf(s, n.id);
         const op = isNodeOpen(s, n.id);
         const pips = '●'.repeat(lv) + '○'.repeat(LEVEL_MAX - lv);
@@ -260,8 +342,34 @@ export function createDojoUI({ get, set, log }) {
     return h;
   }
 
+  // 剣の巻物（ピクロス）
+  function nonoScrollHtml(s) {
+    const sc = s.dojo.scroll;
+    const p = sc.puzzle;
+    const n = nodeOf(sc.node);
+    const need = p.solution.filter((v) => v).length;
+    let h = `<p class="sess-title"><b>${n.name}の巻物</b>（${sc.level}/5 → ${sc.level + 1}/5）</p>`;
+    h += `<p class="small scroll-rule">${p.rules.length ? p.rules.map((r) => `<b>${NONO_RULES[r].name}</b>：${NONO_RULES[r].text}`).join('<br>') : '変えなし：数字は続けて塗るマスの長さ'}</p>`;
+    const modes = [['paint1', p.colors === 2 ? '赤で塗る' : '塗る'], ...(p.colors === 2 ? [['paint2', '青で塗る']] : []), ['x', '×']];
+    if (ui.mode === 'paint2' && p.colors !== 2) ui.mode = 'paint1';
+    if (!['paint1', 'paint2', 'x'].includes(ui.mode)) ui.mode = 'paint1';
+    h += `<div class="dojo-bar"><span class="num">塗る ${Object.keys(sc.paint).length}/${need}　ミス ${sc.mistakes}</span>` +
+      `<span class="mode">${modes.map(([m, t]) => `<button type="button" data-dact="mode" data-mode="${m}" aria-pressed="${ui.mode === m && !ui.tech}">${t}</button>`).join('')}</span></div>`;
+    const techs = Object.entries(sc.techs);
+    if (techs.length) {
+      h += '<div class="strikes">' + techs.map(([t, left]) => `<button type="button" class="opt${ui.tech === t ? ' sel' : ''}" data-dact="tech" data-tech="${t}" ${left > 0 ? '' : 'disabled'}>` +
+        `${ALL_TECHS[t].name}<small>あと${left}回</small></button>`).join('') + '</div>';
+      if (ui.tech) h += `<p class="small temp-note">${ALL_TECHS[ui.tech].text}。使うマスを押す（もう一度技を押すとやめる）</p>`;
+    }
+    h += nonoBoardHtml(sc);
+    h += '<p class="small quiet">押したまま動かすと続けて塗る・×。右クリック・長押しで×。×のマスは塗れない（先に×を外す）。濃い×は技で分かった「塗らない」マス。小さい数字は出血の刃（まわり8マスの塗る数）。</p>';
+    h += '<button type="button" class="mini wide" data-dact="quit">やめる（熟練は入らない）</button>';
+    return h;
+  }
+
   function scrollHtml(s) {
     const sc = s.dojo.scroll;
+    if (sc.kind === 'nono') return nonoScrollHtml(s);
     const p = sc.puzzle;
     const n = nodeOf(sc.node);
     let h = `<p class="sess-title"><b>${n.name}の巻物</b>（${sc.level}/5 → ${sc.level + 1}/5）</p>`;
@@ -373,7 +481,7 @@ export function createDojoUI({ get, set, log }) {
     h += '<div class="hand">' + cards.map((id) => {
       const c = CARDS[id];
       const lv = cardLevel(s, id);
-      const kind = { tech: '技', mod: '修飾', cond: '条件' }[c.type];
+      const kind = CARD_KINDS[c.type];
       const lvText = c.node ? `・${lv}/5 効き＋${Math.round((lv - 1) * 10)}%` : '';
       return `<button type="button" class="opt card k-${c.type}${ui.pick === id ? ' sel' : ''}" data-dact="card" data-card="${id}">${c.name}<small>${kind}・${c.swings}振り${lvText}</small><small>${c.text}</small></button>`;
     }).join('') + '</div>';
@@ -394,7 +502,7 @@ export function createDojoUI({ get, set, log }) {
     if (timeline.length) {
       h += '<h3>使われる順（1周）</h3><div class="timeline">' + timeline.filter((e) => e.type === 'card').map((e) => {
         const c = CARDS[e.id];
-        const tag = e.skip ? '（条件が合わず次を飛ばす）' : e.mods ? `（修飾×${e.mods}）` : '';
+        const tag = (e.together ? '（同時）' : '') + (e.skip ? '（条件が合わず次を飛ばす）' : e.mods ? `（修飾×${e.mods}）` : '');
         return `<span class="tl k-${c.type}${e.skip ? ' skip' : ''}">${c.name}<small>${tag}</small></span>`;
       }).join('<span class="arrow">→</span>') + `<span class="arrow">→</span><span class="tl recast">積み直し<small>1周 ${cycle ? cycle.toFixed(1) : '―'}秒</small></span></div>`;
     }

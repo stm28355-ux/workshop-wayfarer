@@ -29,7 +29,7 @@ export const TRIAL = Object.freeze([
   { name: '十字＋組 6×6', w: 6, h: 6, count: 10, rules: ['cross', 'pair'], seed: 4, maxLevel: 3 },
 ]);
 
-// 守りの15節（判定表 第6回 D）。needs：開くのに 1/5 以上が要る節。needsAny：of のうち n 個が 1/5 以上で開く。
+// 守りの14節（判定表 第6回 D。15節目の合流「剣盾」は剣の木へ移した）。needs：開くのに 1/5 以上が要る節。needsAny：of のうち n 個が 1/5 以上で開く。
 // kind：small＝小さい節（1段ごとに stat が足される）、tech＝技、card＝札、secret＝奥義（技）、cross＝流派をまたぐ技。
 // stat（1段ごと）：hp＝最大HP +、atk＝攻撃 +、taken＝受けるダメージ −、regen＝歩く間の回復 +、speed＝攻撃の速さ +（割合）。
 // rule：技・札の巻物の主な変えルール（rules は奥義の2つ）。
@@ -48,8 +48,8 @@ export const GUARD_TREE = Object.freeze([
   { id: 'seishin', name: '静心', kind: 'small', branch: '息吹', needs: ['ukenagashi'], stat: { speed: 0.02 } },
   { id: 'tame', name: '溜め', kind: 'card', branch: '息吹', needs: ['seishin'], rule: 'pair', text: '修飾の札：次の技が2倍、時間も伸びる' },
   { id: 'shingan', name: '心眼', kind: 'secret', branch: '奥', needsAny: { of: ['tategamae', 'kizu', 'tame'], n: 2 }, rules: ['cross', 'connect'], tech: 'shingan' },
-  { id: 'kenjun', name: '剣盾', kind: 'cross', branch: '奥', needs: ['tateuchi'], locked: '剣の流派と合わせて開く（工程7）' },
-]);
+].map((n) => ({ ...n, school: 'guard' })));
+// 合流「剣盾」は剣の木へ移した（src/data/sword.js、判定表 第13回 C1）。
 
 // 守りの技の、解読での形（判定表 第6回 C）。戦いでの効きは工程5。
 export const TECHS = Object.freeze({

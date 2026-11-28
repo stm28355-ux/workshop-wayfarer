@@ -47,7 +47,7 @@ export const WORKSHOP = Object.freeze({
 // 地域（判定表 第1回 B4。名前は仮）。地域1・2は工程3で合わせた。地域3〜6は予定表から出した仮の値（工程6・7で直す）。
 // gap：敵の間の歩数。drain：1刻みに減る支度（地域ごとに約2倍）。bossAt：ボスまでの歩数。
 // enemy：道の敵。i 体目は hp = hp + hpStep × i、atk = atk + floor(i / atkEvery)。hits は1秒に何回攻撃するか（群れ・多段）。
-// traits：敵の性質（判定表 第9回 C2）。shell＝1回の攻撃から引く殻、shield＝最初の◯回を防ぐ（shieldSec 秒に1つ戻る）、regenPct＝毎秒、最大HPのこの割合を回復。
+// traits：敵の性質（判定表 第9回 C2。swarm は第13回 C5：群れの数。範囲の技はこの数だけ当たる）。shell＝1回の攻撃から引く殻、shield＝最初の◯回を防ぐ（shieldSec 秒に1つ戻る）、regenPct＝毎秒、最大HPのこの割合を回復。
 // drops：道の敵が順に落とす物（乱数なし。i 体目は drops[i % 長さ]）。価値は地域ごとに約2倍（判定表 第4回 C3）。
 // unlocks：ボスを倒すと開く物（判定表 第4回 C7：地域1 打ち分けと工房、地域2 マージの職人と道場、地域3 打ち分けの職人、地域4 門下生、地域5 振り分け）。
 export const REGIONS = Object.freeze([
@@ -60,8 +60,8 @@ export const REGIONS = Object.freeze([
   },
   {
     id: 2, name: '坑道', wall: '群れ', gap: 30, drain: 1.4, bossAt: 1800,
-    enemy: { name: '岩虫の群れ', hp: 30, hpStep: 1, atk: 3, atkEvery: 15, hits: 3 },
-    boss: { name: '岩虫の女王', hp: 1400, atk: 4, hits: 4 },
+    enemy: { name: '岩虫の群れ', hp: 30, hpStep: 1, atk: 3, atkEvery: 15, hits: 3, traits: { swarm: 3 } },
+    boss: { name: '岩虫の女王', hp: 1400, atk: 4, hits: 4, traits: {} },
     drops: [{ kind: 'iron', rank: 2 }, { kind: 'copper', rank: 1 }, { kind: 'stone', rank: 1 }, { kind: 'copper', rank: 2 }],
     unlocks: ['region:3', 'crafter:merge', 'stage:dojo', 'school:guard', 'school:sword'],
   },

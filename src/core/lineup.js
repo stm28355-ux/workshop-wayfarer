@@ -5,7 +5,7 @@
 // 戦いの1刻みの手（heroAct・enemyAct・tickFight）は、ゲームと木人で同じ物を使う。
 
 import { CARDS, LINEUP, STATES, SHELL_MIN } from '../data/cards.js';
-import { GUARD_TREE } from '../data/dojo.js';
+import { ALL_NODES } from '../data/schools.js';
 import { GEAR_KINDS } from '../data/forge.js';
 import { TICKS_PER_SEC } from '../data/balance.js';
 import { levelOf } from './dojo.js';
@@ -30,7 +30,7 @@ export function availableCards(state) {
 
 // 枠の数：3から、技・札・奥義の節が 3/5 になるたびに ＋1（上限10）。
 export function slotCount(state) {
-  const extra = GUARD_TREE.filter((n) => ['tech', 'card', 'secret'].includes(n.kind) && levelOf(state, n.id) >= LINEUP.slotLevel).length;
+  const extra = ALL_NODES.filter((n) => ['tech', 'card', 'secret'].includes(n.kind) && levelOf(state, n.id) >= LINEUP.slotLevel).length;
   return Math.min(LINEUP.maxSlots, LINEUP.baseSlots + extra);
 }
 
@@ -68,24 +68,39 @@ export function recastTicks(state) {
 // ───────── 戦いの1刻み ─────────
 // ctx：{ tick, hero（heroStats）, cards, levels（{札: 段}）, recast（刻み）, line, f（敵）, run（hp を持つ）, events }
 
-// 敵に当てる。盾が残っていれば防がれ、殻があれば引かれる。崩しの間は ＋30%・殻が半分。当たった量を返す。
-export function hitEnemy(f, raw, tick) {
+// 敵に当てる。盾が残っていれば防がれ、殻があれば引かれる（pierce なら殻を無視）。崩しの間は ＋30%・殻が半分。当たった量を返す。
+export function hitEnemy(f, raw, tick, pierce = false) {
   if (f.shieldHits > 0) {
     f.shieldHits -= 1;
     return 0;
   }
   const broken = f.breakUntil > tick;
   let dmg = raw * (broken ? STATES.breakTaken : 1);
-  const shell = (f.shell ?? 0) * (broken ? STATES.breakShell : 1);
+  const shell = pierce ? 0 : (f.shell ?? 0) * (broken ? STATES.breakShell : 1);
   if (shell > 0) dmg = Math.max(dmg * SHELL_MIN, dmg - shell);
   f.hp -= dmg;
   return dmg;
 }
 
-function applyTech(ctx, c, p) {
+// 出血を重ねる。弾けたら当てた量を返す。
+function addBleed(ctx, n) {
+  const { f, hero, tick, events } = ctx;
+  f.bleed = (f.bleed ?? 0) + n;
+  if (f.bleed < STATES.bleedMax) return 0;
+  f.bleed = 0;
+  events.push({ type: 'burst' });
+  return hitEnemy(f, hero.atk * STATES.bleedBurst, tick, true);
+}
+
+// 技を当てる。area：群れの全員に（群れでなければ1体）。
+function applyTech(ctx, c, p, area = false) {
   const { hero, line, f, tick } = ctx;
   let dealt = 0;
-  if (c.damage) dealt += hitEnemy(f, hero.atk * c.damage * p, tick);
+  const bodies = area || c.area ? f.swarm ?? 1 : 1;
+  if (c.damage) {
+    for (let b = 0; b < bodies; b++) for (let k = 0; k < (c.hits ?? 1); k++) dealt += hitEnemy(f, hero.atk * c.damage * p, tick, !!c.pierce);
+  }
+  if (c.bleed) dealt += addBleed(ctx, c.bleed);
   if (c.breakSec) f.breakUntil = Math.max(f.breakUntil ?? -1, tick + c.breakSec * TICKS_PER_SEC * p);
   if (c.dodge) line.dodge += Math.round(c.dodge * p);
   if (c.stanceSec) line.stanceUntil = Math.max(line.stanceUntil, tick + c.stanceSec * TICKS_PER_SEC * p);
@@ -97,9 +112,42 @@ function applyTech(ctx, c, p) {
   return dealt;
 }
 
+// 条件が合うか。
+function condHolds(ctx, c) {
+  if (c.cond === 'opening') return ctx.tick - (ctx.f.start ?? 0) < STATES.iaiSec * TICKS_PER_SEC;
+  return ctx.run.hp <= ctx.hero.maxHp / 2;
+}
+
+// 札を1枚使う。{ time（振り）, dealt, skip?（条件）, stack?（重ねの枚数） }
+function useCard(ctx, id) {
+  const { levels, line, events } = ctx;
+  const c = CARDS[id];
+  const p = 1 + LINEUP.perLevel * ((levels[id] ?? 1) - 1);
+  if (c.type === 'cond') {
+    const ok = condHolds(ctx, c);
+    events.push({ type: 'card', id, skip: !ok });
+    return { time: 0, dealt: 0, skip: !ok };
+  }
+  if (c.type === 'stack') {
+    events.push({ type: 'card', id });
+    return { time: 0, dealt: 0, stack: c.count };
+  }
+  if (c.type === 'mod') {
+    line.mods.push({ mult: c.mult ?? 1, timeMult: c.timeMult ?? 1, area: !!c.area });
+    events.push({ type: 'card', id });
+    return { time: c.swings, dealt: 0 };
+  }
+  const mult = line.mods.reduce((a, m) => a * m.mult, 1);
+  const tm = line.mods.reduce((a, m) => a * m.timeMult, 1);
+  const area = line.mods.some((m) => m.area);
+  events.push({ type: 'card', id, mods: line.mods.length });
+  line.mods = [];
+  return { time: c.swings * tm, dealt: applyTech(ctx, c, p * mult, area) };
+}
+
 // 勇者の番（heroCd が 0 になったとき）。当てた量を返す。
 export function heroAct(ctx) {
-  const { hero, cards, levels, line, f, run, events } = ctx;
+  const { hero, cards, line, f } = ctx;
   if (line.recast <= 0 && cards.length) {
     for (let guard = 0; guard < cards.length * 2 + 2; guard++) {
       if (line.pos >= cards.length) {
@@ -107,29 +155,28 @@ export function heroAct(ctx) {
         line.recast = ctx.recast;
         break;
       }
-      const id = cards[line.pos];
-      const c = CARDS[id];
-      const p = 1 + LINEUP.perLevel * ((levels[id] ?? 1) - 1);
-      if (c.type === 'cond') {
-        const ok = run.hp <= hero.maxHp / 2;
-        events.push({ type: 'card', id, skip: !ok });
-        line.pos += ok ? 1 : 2;
+      const r = useCard(ctx, cards[line.pos]);
+      if (r.skip !== undefined) {
+        line.pos += r.skip ? 2 : 1;
         continue;
       }
-      let time = c.swings;
-      let dealt = 0;
-      if (c.type === 'mod') {
-        line.mods.push({ mult: c.mult, timeMult: c.timeMult });
-        events.push({ type: 'card', id });
-      } else {
-        const mult = line.mods.reduce((a, m) => a * m.mult, 1);
-        const tm = line.mods.reduce((a, m) => a * m.timeMult, 1);
-        events.push({ type: 'card', id, mods: line.mods.length });
-        line.mods = [];
-        dealt = applyTech(ctx, c, p * mult);
-        time *= tm;
-      }
       line.pos += 1;
+      let time = r.time;
+      let dealt = r.dealt;
+      if (r.stack) {
+        // 重ね：次の何枚かを同時に使う（時間は一番長い札。条件は数えない）
+        let left = r.stack;
+        while (left > 0 && line.pos < cards.length) {
+          const n0 = ctx.events.length;
+          const r2 = useCard(ctx, cards[line.pos]);
+          for (let k = n0; k < ctx.events.length; k++) ctx.events[k].together = true; // 重ねで同時に使った
+          if (r2.skip !== undefined) { line.pos += r2.skip ? 2 : 1; continue; }
+          line.pos += 1;
+          left -= 1;
+          time = Math.max(time, r2.time);
+          dealt += r2.dealt;
+        }
+      }
       // 時間の端数は捨てずに次へ持ち越す（攻撃の速さの小さい伸びも効くように）
       f.heroCd += Math.max(1, time * hero.attackTicks);
       if (line.pos >= cards.length) {
@@ -171,10 +218,15 @@ export function enemyAct(ctx) {
   return d;
 }
 
-// 敵の性質の時間の動き（回復・盾が戻る）と、積み直しの時計。
+// 敵の性質の時間の動き（回復・盾が戻る）と、出血と、積み直しの時計。出血で削った量を返す。
 export function tickFight(ctx) {
-  const { f, line } = ctx;
+  const { f, line, hero } = ctx;
+  let dealt = 0;
   if (line.recast > 0) line.recast -= 1;
+  if (f.bleed > 0 && hero) {
+    dealt = (hero.atk * STATES.bleedPer * f.bleed * (1 + (hero.tree?.bleed ?? 0))) / TICKS_PER_SEC;
+    f.hp -= dealt;
+  }
   if (f.regen) f.hp = Math.min(f.maxHp, f.hp + f.regen);
   if (f.shieldMax) {
     f.shieldCd -= 1;
@@ -183,6 +235,7 @@ export function tickFight(ctx) {
       f.shieldCd = f.shieldEvery;
     }
   }
+  return dealt;
 }
 
 // 札ごとの段。
@@ -196,7 +249,7 @@ export function levelsOf(state, cards) {
 // 木人は倒れない。今の強さで seconds 秒当てた結果。相手の強さは勇者に合わせて決める（どの強さでも比べられるように）。
 export const DUMMIES = Object.freeze({
   plain: { name: '素の敵', text: '1秒に1回、最大HPの5%の攻撃' },
-  swarm: { name: '群れ', text: '1秒に3回、最大HPの2%の攻撃' },
+  swarm: { name: '群れ', text: '3体の群れ。1秒に3回、最大HPの2%の攻撃' },
   shell: { name: '硬い殻', text: '1回の攻撃から、勇者の攻撃の8割を引く' },
   regen: { name: '回復', text: '毎秒、普通の攻撃の6割ぶん回復する（差し引きを出す）' },
 });
@@ -206,7 +259,8 @@ export function runDummy(state, cards, type, seconds = 30) {
   const levels = levelsOf(state, cards);
   const base = hero.atk * TICKS_PER_SEC / hero.attackTicks; // 普通の攻撃だけの毎秒（回復の木人の強さに使う）
   const f = { hp: 1e15, maxHp: 1e15, atk: hero.maxHp * 0.05, enemyTicks: TICKS_PER_SEC, heroCd: 1, enemyCd: TICKS_PER_SEC, shell: 0, shieldHits: 0, breakUntil: -1 };
-  if (type === 'swarm') { f.atk = hero.maxHp * 0.02; f.enemyTicks = Math.round(TICKS_PER_SEC / 3); f.enemyCd = f.enemyTicks; }
+  if (type === 'swarm') { f.atk = hero.maxHp * 0.02; f.enemyTicks = Math.round(TICKS_PER_SEC / 3); f.enemyCd = f.enemyTicks; f.swarm = 3; }
+  f.start = 0;
   if (type === 'shell') f.shell = hero.atk * 0.8;
   const regenPerTick = type === 'regen' ? (base * 0.6) / TICKS_PER_SEC : 0;
   const line = newLine();
@@ -220,7 +274,7 @@ export function runDummy(state, cards, type, seconds = 30) {
   let firstRecast = null;
   for (let t = 0; t < seconds * TICKS_PER_SEC; t++) {
     ctx.tick = t;
-    tickFight(ctx);
+    dealt += tickFight(ctx);
     f.heroCd -= 1;
     if (f.heroCd <= 0) {
       const before = ctx.events.length;

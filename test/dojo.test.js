@@ -37,8 +37,8 @@ function solveScroll(s, miss = 0) {
   return { state: st, events };
 }
 
-test('守りは15節。根だけが最初から開いていて、親が 1/5 で子が開く', () => {
-  assert.equal(GUARD_TREE.length, 15);
+test('守りは14節（合流の剣盾は剣の木へ）。根だけが最初から開いていて、親が 1/5 で子が開く', () => {
+  assert.equal(GUARD_TREE.length, 14);
   const s = opened();
   assert.equal(isNodeOpen(s, 'kamae'), true);
   assert.equal(isNodeOpen(s, 'uke'), false);
