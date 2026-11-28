@@ -9,6 +9,9 @@ export const SCROLL_SIZES = Object.freeze({
 // 熟練（C1 と第6回の直し）：節の1段は熟練2。解くと3（技を使っても減らない）、ミス1回につき −1（最低1）。
 export const SKILL = Object.freeze({ perLevel: 2, clear: 3, mistake: 1, min: 1 });
 
+// 門下生（判定表 第11回 A1・A4）：everySec 秒に1枚、熟練 gain。工房で速さを上げると間が speedMult 倍ずつ。
+export const DISCIPLE = Object.freeze({ everySec: 90, gain: 2, speedMult: 0.8 });
+
 export function skillGain(mistakes) {
   return Math.max(SKILL.min, SKILL.clear - SKILL.mistake * mistakes);
 }

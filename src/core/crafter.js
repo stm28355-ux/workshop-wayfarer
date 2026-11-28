@@ -8,7 +8,8 @@ import { KINDS } from '../data/balance.js';
 
 const KIND_ORDER = Object.keys(KINDS);
 
-export function crafterMerge(board, maxRank, locked = []) {
+// opts.wait5：5個そろうまで待つ（空きマスが waitEmpty 以下なら3〜4個でも合わせる）。
+export function crafterMerge(board, maxRank, locked = [], opts = {}) {
   const skip = new Set(locked);
   const groups = new Map();
   board.cells.forEach((c, i) => {
@@ -17,13 +18,18 @@ export function crafterMerge(board, maxRank, locked = []) {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(i);
   });
-  const ready = [...groups.entries()]
+  let ready = [...groups.entries()]
     .filter(([, cells]) => cells.length >= 3)
     .map(([key, cells]) => {
       const [rank, kind] = key.split(':');
       return { rank: Number(rank), kind, cells };
     })
     .sort((a, b) => a.rank - b.rank || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
+  if (opts.wait5) {
+    const five = ready.filter((g) => g.cells.length >= 5);
+    const empty = board.cells.filter((c) => !c).length;
+    ready = five.length ? five : empty <= (opts.waitEmpty ?? 2) ? ready : [];
+  }
   if (ready.length === 0) return { board, merged: null };
   const g = ready[0];
   const used = g.cells.length >= 5 ? 5 : 3;

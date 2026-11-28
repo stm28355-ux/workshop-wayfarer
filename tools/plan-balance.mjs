@@ -5,7 +5,8 @@
 // 配り方は 地域1：育てる55%、地域2から：育てる25%・装備30%（武器55%・防具45%）。出来は80%。
 // 工程ごとに、ボットと人の記録をこの表と並べてずれを見る。
 const args = Object.fromEntries(process.argv.slice(2).map((a) => a.split('=')));
-const T = [20, 35, 50, 65, 80, 120];
+// 地域ごとの分（判定表 第11回 D1：歩く速さ2倍に合わせて、累計 15・40・75分…魔王まで約4時間半）
+const T = (args.T ?? '15,25,35,46,57,86').split(',').map(Number);
 const PICK = 22, VG = Number(args.vg ?? 2);
 const C = Number(args.C ?? 30), A = 6, H = 30, ADD = 0.25, CAP = Number(args.cap ?? 4), Q = 0.8;
 const BA = Number(args.ba ?? 10), BH = Number(args.bh ?? 60), P1 = Number(args.p1 ?? 26);

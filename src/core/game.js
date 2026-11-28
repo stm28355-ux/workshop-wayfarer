@@ -2,7 +2,8 @@
 // advance(state, 刻み) で時間を進め、moveItem・feed・chooseRegion・forge*・equipItem・buyUpgrade が人の手。
 // どれも新しい状態を返し、元の状態は変えない。
 
-import { TICKS_PER_SEC, HERO, PREP, BOARD, REGIONS, MERGE_CRAFTER, WORKSHOP } from '../data/balance.js';
+import { TICKS_PER_SEC, HERO, PREP, BOARD, REGIONS, MERGE_CRAFTER, WORKSHOP, SPLIT, EXITS } from '../data/balance.js';
+import { tickDisciple, shapesFromLevels } from './dojo.js';
 import { GEAR, SLOTS, GEAR_KINDS, FIRE_PER, FORGE_CRAFTER, gearCost, bandOf } from '../data/forge.js';
 import { rankValue } from './rank.js';
 import { createBoard, place, move, takeAt, widen } from './board.js';
@@ -10,10 +11,10 @@ import { gainXp } from './hero.js';
 import { heroStats, damageTaken, planOf, applyCraft, itemKey } from './gear.js';
 import { crafterMerge } from './crafter.js';
 import * as forge from './forge.js';
-import { activeCards, levelsOf, recastTicks, newLine, heroAct, enemyAct, tickFight } from './lineup.js';
+import { activeCards, levelsOf, recastTicks, newLine, heroAct, enemyAct, tickFight, slotCount } from './lineup.js';
 import { KINDS } from '../data/balance.js';
 
-export const STATE_VERSION = 4;
+export const STATE_VERSION = 5;
 
 // 前の版の保存を今の形にする（版2 → 3：道場を足した）。読めなければ null。
 export function migrate(state) {
@@ -27,6 +28,17 @@ export function migrate(state) {
     state.lineup = { byRegion: {} };
     if (state.run) state.run.line = newLine();
     state.version = 4;
+  }
+  if (state.version === 4) {
+    // 版4 → 5：門下生・振り分け・帳簿の数（判定表 第11回）
+    state.workshop.disciple = 0;
+    state.dojo.shapes = shapesFromLevels(state);
+    state.dojo.disciple = { branch: 'all', node: null, cd: 0 };
+    state.split = newSplit();
+    state.crafter.wait5 = false;
+    state.stats.fed = newFed();
+    state.stats.byRegion = {};
+    state.version = 5;
   }
   return state.version === STATE_VERSION ? state : null;
 }
@@ -89,13 +101,15 @@ export function createGame() {
     stock: { forge: {}, workshop: 0 },
     gear: { items: {}, equip: { weapon: null, armor: null } },
     forge: { session: null, fuel: null, best: {}, auto: true, cd: FORGE_CRAFTER.everyTicks, next: 0 },
-    crafter: { cd: MERGE_CRAFTER.everyTicks },
-    workshop: { arm: 0, speed: 0, widen: 0 },
-    dojo: { nodes: {}, scroll: null, drawn: 0 },
+    crafter: { cd: MERGE_CRAFTER.everyTicks, wait5: false },
+    workshop: { arm: 0, speed: 0, widen: 0, disciple: 0 },
+    dojo: { nodes: {}, scroll: null, drawn: 0, shapes: [], disciple: { branch: 'all', node: null, cd: 0 } },
+    split: newSplit(),
     lineup: { byRegion: {} },
     stats: {
       departures: 1, picked: 0, overflow: 0, merges: 0, crafterMerges: 0, kills: 0, crafted: 0, autoCrafted: 0, crits: 0,
       returns: { prep: 0, down: 0, boss: 0 }, firstBoss: {},
+      fed: newFed(), byRegion: { 1: { departs: 1, prep: 0, down: 0, boss: 0 } }, discipleScrolls: 0,
     },
   };
   state.run = newRun(state, 1);
@@ -141,11 +155,35 @@ function applyUnlock(s, key, events) {
   events.push({ type: 'unlock', key });
 }
 
+// 帳簿の数（判定表 第11回 C1）：出口ごとに入れた価値（手・振り分け）と、直近の分ごと。
+function newFed() {
+  return { hand: { prep: 0, grow: 0, forge: 0, workshop: 0 }, split: { prep: 0, grow: 0, forge: 0, workshop: 0 }, minute: -1, now: null, past: [] };
+}
+function noteFed(s, exit, value, by) {
+  if (!s.stats.fed) s.stats.fed = newFed();
+  const f = s.stats.fed;
+  f[by][exit] += value;
+  const m = Math.floor(s.tick / (60 * TICKS_PER_SEC));
+  if (f.minute !== m) {
+    if (f.now) f.past = [...f.past, { minute: f.minute, ...f.now }].slice(-5);
+    f.minute = m;
+    f.now = { prep: 0, grow: 0, forge: 0, workshop: 0 };
+  }
+  f.now[exit] += value;
+}
+function regionStats(s, id) {
+  if (!s.stats.byRegion) s.stats.byRegion = {};
+  if (!s.stats.byRegion[id]) s.stats.byRegion[id] = { departs: 0, prep: 0, down: 0, boss: 0 };
+  return s.stats.byRegion[id];
+}
+
 function goHome(s, reason, events) {
   s.stats.returns[reason] += 1;
+  regionStats(s, s.run.region)[reason] += 1;
   events.push({ type: 'return', reason, region: s.run.region, step: s.run.step });
   s.run = newRun(s, s.nextRegion, PREP.waitTicks);
   s.stats.departures += 1;
+  regionStats(s, s.run.region).departs += 1;
   events.push({ type: 'depart', region: s.run.region });
 }
 
@@ -173,7 +211,9 @@ function winFight(s, events) {
     if (!s.cleared.includes(run.region)) {
       s.cleared.push(run.region);
       // 試すときの記録（判定表 第2回）：初めて倒した刻みとレベル
-      s.stats.firstBoss = { ...(s.stats.firstBoss ?? {}), [run.region]: { tick: s.tick, level: s.hero.level } };
+      // 帳簿（判定表 第11回 C2）で予定表と並べるため、武器と防具の格・並びの枠も残す
+      const tierOf = (slot) => (s.gear.equip[slot] ? s.gear.items[s.gear.equip[slot]].tier : 0);
+      s.stats.firstBoss = { ...(s.stats.firstBoss ?? {}), [run.region]: { tick: s.tick, level: s.hero.level, weapon: tierOf('weapon'), armor: tierOf('armor'), slots: slotCount(s) } };
       for (const key of region(run.region).unlocks) applyUnlock(s, key, events);
     }
     goHome(s, 'boss', events);
@@ -199,7 +239,7 @@ function tickCrafters(s, events, locked) {
     s.crafter.cd -= 1;
     if (s.crafter.cd <= 0) {
       s.crafter.cd = mergeCrafterTicks(s);
-      const r = crafterMerge(s.board, mergeCrafterRank(s), locked);
+      const r = crafterMerge(s.board, mergeCrafterRank(s), locked, { wait5: s.crafter.wait5, waitEmpty: MERGE_CRAFTER.waitEmpty });
       if (r.merged) {
         s.board = r.board;
         s.stats.crafterMerges += 1;
@@ -215,6 +255,8 @@ function tickCrafters(s, events, locked) {
       if (r) events.push(r);
     }
   }
+  if (isOpen(s, 'disciple')) tickDisciple(s, events);
+  tickSplit(s, events, locked);
 }
 
 function tickOnce(s, events, locked) {
@@ -294,6 +336,12 @@ export function moveItem(state, from, to) {
 export function feed(state, index, exit) {
   if (!state.open.exits.includes(exit) || !state.board.cells[index]) return { state, ok: false };
   const s = clone(state);
+  const r = feedInto(s, index, exit, 'hand');
+  return { state: s, ok: true, item: r.item, value: r.value };
+}
+
+// 出口に入れる（s をその場で変える）。by：'hand'＝人、'split'＝振り分け。
+function feedInto(s, index, exit, by) {
   const { board, item } = takeAt(s.board, index);
   s.board = board;
   const value = itemValue(item);
@@ -309,7 +357,122 @@ export function feed(state, index, exit) {
   } else if (exit === 'workshop') {
     s.stock.workshop += value;
   }
-  return { state: s, ok: true, item, value };
+  noteFed(s, exit, value, by);
+  return { item, value };
+}
+
+// ───────── 振り分け（判定表 第11回 B：地域5のボスで来る） ─────────
+// 「出すランク」以上の物を3秒に1個、入れた価値の合計が割合に一番足りていない出口へ入れる。
+// 出せる物がなく盤がいっぱいなら、一番低い物を支度へ。人が選んでいる・ドラッグしている物には触らない。
+
+export function newSplit() {
+  return { on: true, ratio: { ...SPLIT.ratio }, minRank: SPLIT.minRank, cd: SPLIT.everyTicks, fed: { prep: 0, grow: 0, forge: 0, workshop: 0 } };
+}
+
+// 次に入れる出口（開いていて割合が0でない出口のうち、足りなさが一番大きい所）。
+export function splitExit(state, value) {
+  const sp = state.split;
+  const exits = EXITS.filter((x) => state.open.exits.includes(x) && sp.ratio[x] > 0);
+  if (!exits.length) return null;
+  const sum = exits.reduce((a, x) => a + sp.ratio[x], 0);
+  const total = exits.reduce((a, x) => a + sp.fed[x], 0) + value;
+  let best = null;
+  for (const x of exits) {
+    const lack = (total * sp.ratio[x]) / sum - sp.fed[x];
+    if (!best || lack > best.lack + 1e-9) best = { x, lack };
+  }
+  return best.x;
+}
+
+function tickSplit(s, events, locked) {
+  const sp = s.split;
+  if (!isOpen(s, 'split') || !sp?.on) return;
+  sp.cd -= 1;
+  if (sp.cd > 0) return;
+  sp.cd = SPLIT.everyTicks;
+  const skip = new Set(locked);
+  const cells = s.board.cells;
+  let pick = -1;
+  for (let i = 0; i < cells.length; i++) {
+    const c = cells[i];
+    if (!c || skip.has(i) || c.rank < sp.minRank) continue;
+    if (pick < 0 || c.rank > cells[pick].rank) pick = i;
+  }
+  if (pick >= 0) {
+    const exit = splitExit(s, itemValue(cells[pick]));
+    if (!exit) return;
+    const r = feedInto(s, pick, exit, 'split');
+    sp.fed[exit] += r.value;
+    events.push({ type: 'split', exit, item: r.item, value: r.value });
+    return;
+  }
+  if (cells.some((c) => !c)) return;
+  // 盤がいっぱいで出せる物がない：一番低い物を支度へ（B4）
+  let low = -1;
+  for (let i = 0; i < cells.length; i++) {
+    if (skip.has(i) || !cells[i]) continue;
+    if (low < 0 || itemValue(cells[i]) < itemValue(cells[low])) low = i;
+  }
+  if (low < 0 || !s.open.exits.includes('prep')) return;
+  const r = feedInto(s, low, 'prep', 'split');
+  events.push({ type: 'split', exit: 'prep', item: r.item, value: r.value, full: true });
+}
+
+// 振り分けの設定を変える。{ on, ratio: { 出口: 0〜10 }, minRank }。割合を変えたら入れた合計を数え直す。
+export function setSplit(state, patch) {
+  const s = clone(state);
+  if (!s.split) s.split = newSplit();
+  const sp = s.split;
+  if ('on' in patch) sp.on = !!patch.on;
+  if (patch.minRank !== undefined) sp.minRank = Math.max(1, Math.min(SPLIT.maxRank, Math.round(patch.minRank)));
+  if (patch.ratio) {
+    const next = { ...sp.ratio };
+    for (const [x, v] of Object.entries(patch.ratio)) if (x in next) next[x] = Math.max(0, Math.min(10, Math.round(v)));
+    const sum = Object.values(next).reduce((a, v) => a + v, 0);
+    if (sum !== 10) return { state, ok: false, reason: '割合は合わせて100%' };
+    sp.ratio = next;
+    sp.fed = { prep: 0, grow: 0, forge: 0, workshop: 0 };
+  }
+  return { state: s, ok: true };
+}
+
+// 割合を1つの出口で ±10% 動かす（ほかの出口から順に引く・足す）。
+export function nudgeSplit(state, exit, dir) {
+  const sp = state.split ?? newSplit();
+  const r = { ...sp.ratio };
+  if (!(exit in r)) return { state, ok: false };
+  if (dir > 0) {
+    if (r[exit] >= 10) return { state, ok: false };
+    // 一番多い出口から1つ引く
+    const from = EXITS.filter((x) => x !== exit && r[x] > 0).sort((a, b) => r[b] - r[a])[0];
+    if (!from) return { state, ok: false };
+    r[from] -= 1;
+    r[exit] += 1;
+  } else {
+    if (r[exit] <= 0) return { state, ok: false };
+    // 一番少ない開いた出口へ1つ足す
+    const to = EXITS.filter((x) => x !== exit && state.open.exits.includes(x)).sort((a, b) => r[a] - r[b])[0] ?? EXITS.find((x) => x !== exit);
+    r[exit] -= 1;
+    r[to] += 1;
+  }
+  return setSplit(state, { ratio: r });
+}
+
+// マージの職人の「5個を待つ」（判定表 第11回 D6 の一言）。
+export function setCrafterWait(state, on) {
+  const s = clone(state);
+  s.crafter.wait5 = !!on;
+  return { state: s, ok: true };
+}
+
+
+// 今の出発をやめて、次の地域から出発し直す（試すときと道具で使う。待ちなし）。
+export function restartRun(state) {
+  const s = clone(state);
+  s.run = newRun(s, s.nextRegion, 0);
+  s.stats.departures += 1;
+  regionStats(s, s.run.region).departs += 1;
+  return s;
 }
 
 // 次に出発する地域を選ぶ（帰ったときから効く）。
@@ -487,6 +650,7 @@ export function upgradeCheck(state, what) {
   if (!WORKSHOP[what]) return { ok: false, reason: 'ない' };
   if (!state.open.exits.includes('workshop')) return { ok: false, reason: '工房はまだ開いていない' };
   if ((what === 'arm' || what === 'speed') && !isOpen(state, 'crafter:merge')) return { ok: false, reason: 'マージの職人は地域2のボスで来る' };
+  if (what === 'disciple' && !isOpen(state, 'disciple')) return { ok: false, reason: '門下生は地域4のボスで来る' };
   if (what === 'widen' && !widenTo(state.board)) return { ok: false, reason: '盤はもう一番広い' };
   const cost = upgradeCost(state, what);
   if (state.stock.workshop < cost) return { ok: false, reason: `工房の価値が足りない（${cost}要る）`, cost };

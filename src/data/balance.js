@@ -29,7 +29,11 @@ export const BOARD = Object.freeze({ w: 5, h: 4, maxW: 7, maxH: 6 });
 export const EXITS = Object.freeze(['prep', 'grow', 'forge', 'workshop']);
 
 // マージの職人（地域2のボスで来る）。everyTicks 刻みに1回合わせる。工房で速さを上げると間が speedMult 倍ずつ縮む。
-export const MERGE_CRAFTER = Object.freeze({ everyTicks: 30, speedMult: 0.8, rank: 1 });
+// wait5（判定表 第11回 D6 の一言）：5個そろうまで待つ。空きマスが waitEmpty 以下になったら3〜4個でも合わせる。
+export const MERGE_CRAFTER = Object.freeze({ everyTicks: 30, speedMult: 0.8, rank: 1, waitEmpty: 2 });
+
+// 振り分け（判定表 第11回 B）。割合は10%刻み（数は10分の1）。出すランク以上の物を everyTicks 刻みに1個。
+export const SPLIT = Object.freeze({ everyTicks: 30, minRank: 3, maxRank: 6, ratio: { prep: 4, grow: 3, forge: 2, workshop: 1 } });
 
 // 工房で上げる物の費用（判定表 第3回 E4）。n は今までに上げた回数。
 // arm：職人が合わせられるランク＋1。speed：職人の間×0.8。widen：盤を列か段1つ（交互）、7×6まで。
@@ -37,6 +41,7 @@ export const WORKSHOP = Object.freeze({
   arm: { name: '職人の腕', base: 30, ratio: 3 },
   speed: { name: '職人の速さ', base: 20, ratio: 2 },
   widen: { name: '盤を広げる', base: 50, ratio: 2 },
+  disciple: { name: '門下生の速さ', base: 40, ratio: 2 }, // 判定表 第11回 A4：90秒×0.8ずつ
 });
 
 // 地域（判定表 第1回 B4。名前は仮）。地域1・2は工程3で合わせた。地域3〜6は予定表から出した仮の値（工程6・7で直す）。
@@ -61,9 +66,11 @@ export const REGIONS = Object.freeze([
     unlocks: ['region:3', 'crafter:merge', 'stage:dojo', 'school:guard', 'school:sword'],
   },
   {
-    id: 3, name: '古い森', wall: '硬い殻', gap: 30, drain: 2.8, bossAt: 2100,
-    enemy: { name: '甲虫', hp: 120, hpStep: 4, atk: 12, atkEvery: 10, hits: 1, traits: { shell: 25 } },
-    boss: { name: '甲羅の古木', hp: 7200, atk: 30, hits: 1, traits: { shell: 60 } },
+    // 判定表 第11回 D3：通しのボットで、入口からボスまでの支度が拾う価値の3割半になるよう減りを 2.8 → 1.5、
+    // 予定表どおりの入口（レベル9・剣の格2）で進めるよう敵を弱めた（tools/run-through.mjs --from=r3）。
+    id: 3, name: '古い森', wall: '硬い殻', gap: 30, drain: 1.5, bossAt: 2100,
+    enemy: { name: '甲虫', hp: 90, hpStep: 4, atk: 8, atkEvery: 15, hits: 1, traits: { shell: 15 } },
+    boss: { name: '甲羅の古木', hp: 4000, atk: 12, hits: 1, traits: { shell: 40 } },
     drops: [{ kind: 'copper', rank: 2 }, { kind: 'ice', rank: 2 }, { kind: 'wind', rank: 2 }, { kind: 'copper', rank: 3 }],
     unlocks: ['region:4', 'crafter:forge', 'school:magic', 'school:bow'],
   },

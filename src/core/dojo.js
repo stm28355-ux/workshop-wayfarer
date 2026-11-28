@@ -2,7 +2,8 @@
 // 状態は state.dojo = { nodes: { [節]: { skill } }, scroll: 解いている巻物 | null, drawn: 作った巻物の数 }。
 // 節の段は 熟練 ÷ 2（5段まで）。巻物を解くと熟練3、ミス1回につき −1（最低1）。判定表 第6回。
 
-import { GUARD_TREE, TECHS, SECOND_RULE, SCROLL_SIZES, SKILL, skillGain } from '../data/dojo.js';
+import { GUARD_TREE, TECHS, SECOND_RULE, SCROLL_SIZES, SKILL, DISCIPLE, skillGain } from '../data/dojo.js';
+import { TICKS_PER_SEC } from '../data/balance.js';
 import { generate, numberAt, areaOf } from './scroll.js';
 
 export const LEVEL_MAX = 5;
@@ -134,6 +135,10 @@ function finishIfDone(s, events) {
   s.dojo.nodes[sc.node] = { skill: Math.min(LEVEL_MAX * SKILL.perLevel, nd.skill + gain) };
   const after = levelOf(s, sc.node);
   s.dojo.scroll = null;
+  // 人が解いた形を覚える（門下生が解けるようになる。判定表 第11回 A2）
+  const shape = shapeKey(sc.puzzle);
+  if (!s.dojo.shapes) s.dojo.shapes = [];
+  if (!s.dojo.shapes.includes(shape)) s.dojo.shapes.push(shape);
   s.stats.scrolls = (s.stats.scrolls ?? 0) + 1;
   events.push({ type: 'scroll', node: sc.node, gain, mistakes: sc.mistakes, from: before, to: after });
 }
@@ -219,5 +224,117 @@ export function quitScroll(state) {
   if (!state.dojo?.scroll) return { state, ok: false };
   const s = clone(state);
   s.dojo.scroll = null;
+  return { state: s, ok: true };
+}
+
+// ───── 巻物の形（判定表 第11回 A2）：変えルールの組み合わせと盤の大きさ ─────
+
+export function shapeKey(spec) {
+  return `${[...(spec.rules ?? [])].sort().join('+') || 'base'}:${spec.w}x${spec.h}`;
+}
+
+const RULE_NAMES = { cross: '十字', connect: '連結', pair: '組' };
+export function shapeName(key) {
+  const [rules, size] = key.split(':');
+  const r = rules === 'base' ? '土台' : rules.split('+').map((x) => RULE_NAMES[x] ?? x).join('＋');
+  return `${r} ${size.replace('x', '×')}`;
+}
+
+// 節 id の、今の段で解く巻物の形。
+export function shapeOf(state, id) {
+  const n = nodeOf(id);
+  return shapeKey(scrollSpec(n, levelOf(state, id)));
+}
+
+// 前の版の保存から、人が解いた形を節の段で数える（段 L の節は 0〜L−1 段の巻物を解いている）。
+export function shapesFromLevels(state) {
+  const out = [];
+  for (const n of GUARD_TREE) {
+    if (n.locked) continue;
+    for (let lv = 0; lv < levelOf(state, n.id); lv++) {
+      const k = shapeKey(scrollSpec(n, lv));
+      if (!out.includes(k)) out.push(k);
+    }
+  }
+  return out;
+}
+
+// ───── 門下生（判定表 第11回 A：地域4のボスで来る） ─────
+// 90秒に1枚（工房の「門下生の速さ」で×0.8ずつ）解き、熟練2。技は使わずミスもしない。
+// 解けるのは人が手で一度解いた形だけ。選んだ枝の中で、開いていて段が一番低い節から（同じなら根に近い方）。
+// 人が解いている節は取らない（A5）。
+
+export const DISCIPLE_BRANCHES = Object.freeze(['all', '受け', '返し', '息吹']);
+
+export function discipleTicks(state) {
+  return Math.max(1, Math.round(DISCIPLE.everySec * TICKS_PER_SEC * DISCIPLE.speedMult ** (state.workshop?.disciple ?? 0)));
+}
+
+const depthMemo = new Map();
+export function depthOf(id) {
+  if (depthMemo.has(id)) return depthMemo.get(id);
+  const n = nodeOf(id);
+  const parents = n.needsAny ? n.needsAny.of : n.needs;
+  const d = parents.length ? 1 + Math.min(...parents.map(depthOf)) : 0;
+  depthMemo.set(id, d);
+  return d;
+}
+
+// 門下生が次に解く節（なければ null）。
+export function discipleTarget(state) {
+  const d = state.dojo;
+  const branch = d.disciple?.branch ?? 'all';
+  const shapes = d.shapes ?? [];
+  const busy = d.scroll?.node ?? null;
+  let best = null;
+  GUARD_TREE.forEach((n, order) => {
+    if (n.locked || n.id === busy) return;
+    if (branch !== 'all' && n.branch !== branch && n.branch !== '根') return;
+    if (!isNodeOpen(state, n.id)) return;
+    const lv = levelOf(state, n.id);
+    if (lv >= LEVEL_MAX) return;
+    if (!shapes.includes(shapeKey(scrollSpec(n, lv)))) return;
+    const key = [lv, depthOf(n.id), order];
+    if (!best || key[0] < best.key[0] || (key[0] === best.key[0] && (key[1] < best.key[1] || (key[1] === best.key[1] && key[2] < best.key[2])))) best = { id: n.id, key };
+  });
+  return best?.id ?? null;
+}
+
+// 1刻み進める（状態をその場で変える。game.js の advance から呼ぶ）。
+export function tickDisciple(s, events) {
+  const d = ensure(s);
+  if (!d.disciple) d.disciple = { branch: 'all', node: null, cd: 0 };
+  const w = d.disciple;
+  if (!w.node || w.node === d.scroll?.node || levelOf(s, w.node) >= LEVEL_MAX) {
+    // 1秒ごとに次の節を探す
+    if (w.node || s.tick % TICKS_PER_SEC === 0) {
+      w.node = discipleTarget(s);
+      w.cd = w.node ? discipleTicks(s) : 0;
+    }
+    return;
+  }
+  w.cd -= 1;
+  if (w.cd > 0) return;
+  const id = w.node;
+  w.node = null;
+  if (!shapes(d).includes(shapeOf(s, id))) return; // 人が段を上げて形が変わった
+  const before = levelOf(s, id);
+  const nd = d.nodes[id] ?? { skill: 0 };
+  d.nodes[id] = { skill: Math.min(LEVEL_MAX * SKILL.perLevel, nd.skill + DISCIPLE.gain) };
+  s.stats.discipleScrolls = (s.stats.discipleScrolls ?? 0) + 1;
+  events.push({ type: 'disciple', node: id, gain: DISCIPLE.gain, from: before, to: levelOf(s, id) });
+  w.node = discipleTarget(s);
+  w.cd = w.node ? discipleTicks(s) : 0;
+}
+
+function shapes(d) {
+  return d.shapes ?? [];
+}
+
+export function setDiscipleBranch(state, branch) {
+  if (!DISCIPLE_BRANCHES.includes(branch)) return { state, ok: false };
+  const s = clone(state);
+  const d = ensure(s);
+  d.disciple = { ...(d.disciple ?? { node: null, cd: 0 }), branch, node: null, cd: 0 };
   return { state: s, ok: true };
 }

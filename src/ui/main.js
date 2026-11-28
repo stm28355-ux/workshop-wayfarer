@@ -8,6 +8,8 @@ import { TICKS_PER_SEC, PREP, KINDS } from '../data/balance.js';
 import { load, save, clear } from './save.js';
 import { createForgeUI, craftText } from './forge-ui.js';
 import { createDojoUI } from './dojo-ui.js';
+import { createAutoUI } from './auto-ui.js';
+import { planAfterRegion2 } from '../core/plan.js';
 import { activeCards } from '../core/lineup.js';
 import { CARDS } from '../data/cards.js';
 
@@ -17,7 +19,9 @@ const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
 // 試すときの保存は本番と別。
 // ?test=dojo は地域2のボスの後（道場が開いている）。
 // ?test=line は地域2のボスの後で、守りの札が全部使え（節 1/5）、技の節3つが 3/5（枠6）。
-const TEST = ['open', 'dojo', 'line', 'all'].includes(params.get('test')) ? params.get('test') : null;
+// ?test=r3 は地域2のボスを倒した直後の、予定表どおりの状態（判定表 第11回 D4。src/core/plan.js）。
+// ?test=auto は門下生と振り分けが来ている状態（第11回 D5）。
+const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto'].includes(params.get('test')) ? params.get('test') : null;
 const SLOT = TEST ? `test-${TEST}` : undefined;
 const TICK_MS = 1000 / TICKS_PER_SEC;
 const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
@@ -37,6 +41,8 @@ if (loaded) {
 }
 
 function testState(mode) {
+  if (mode === 'r3') return planAfterRegion2();
+  if (mode === 'auto') return autoState();
   const s = createGame();
   const upto = { open: 1, dojo: 2, line: 2, all: 3 }[mode];
   for (let id = 1; id <= upto; id++) {
@@ -57,6 +63,31 @@ function testState(mode) {
     s.hero.level = 10;
   }
   s.run.hp = heroStats(s).maxHp;
+  return s;
+}
+
+// 門下生と振り分けを見る状態：予定表の地域3の入口から、地域5のボスまで開けた物。
+function autoState() {
+  const s = planAfterRegion2();
+  for (const id of [3, 4, 5]) {
+    if (!s.cleared.includes(id)) s.cleared.push(id);
+    for (const key of region(id).unlocks) {
+      const [what, arg] = key.split(':');
+      if (what === 'region') { if (!s.open.regions.includes(Number(arg))) s.open.regions.push(Number(arg)); }
+      else if (what === 'exit') { if (!s.open.exits.includes(arg)) s.open.exits.push(arg); }
+      else if (!s.open.unlocks.includes(key)) s.open.unlocks.push(key);
+    }
+  }
+  // 構えを 1/5 にし、土台 5×5 は解いたことにする（門下生が受けの型・返しの型・息吹を解ける）
+  s.dojo.nodes.kamae = { skill: 2 };
+  s.dojo.shapes = ['base:5x5'];
+  s.stock.workshop = 200;
+  // 盤にランク3の物をいくつか（振り分けが出す）
+  s.board.cells[0] = { kind: 'copper', rank: 3 };
+  s.board.cells[1] = { kind: 'iron', rank: 3 };
+  s.board.cells[2] = { kind: 'fire', rank: 2 };
+  s.board.cells[3] = { kind: 'fire', rank: 2 };
+  s.run.prep = 1e6;
   return s;
 }
 
@@ -110,7 +141,8 @@ function handle(events) {
       for (const i of e.merged.at) flashes.set(i, until);
     } else if (e.type === 'craft' && e.auto) {
       log(craftText(e));
-
+    } else if (e.type === 'split') {
+      if (e.full) log('盤がいっぱい：振り分けが一番低い物を支度へ');
     }
   }
   if (overflow) {
@@ -139,6 +171,8 @@ function unlockName(key) {
   if (key === 'crafter:forge') return '打ち分けの職人';
   if (key === 'stage:forge') return '段2 打ち分け';
   if (key === 'stage:dojo') return '段3 道場';
+  if (key === 'disciple') return '門下生';
+  if (key === 'split') return '振り分け';
   return null;
 }
 
@@ -160,6 +194,7 @@ function frame(now) {
       const r = advance(state, n, { locked });
       state = r.state;
       handle(r.events);
+      autoUI.handle(r.events);
     }
   }
   if (now > saveAt) {
@@ -445,7 +480,7 @@ function render(now) {
   $('rate-pick').textContent = recent.pick.length;
   $('rate-merge').textContent = recent.merge.length;
   $('rate-over').textContent = recent.over.length;
-  renderRecords();
+  autoUI.render();
 }
 
 // 技の並びの進みと状態（判定表 第9回 C5）
@@ -481,31 +516,6 @@ function renderFightLine(s) {
   if ($('fight-line').textContent !== text) $('fight-line').textContent = text;
 }
 
-// 試すときの記録（判定表 第2回）：遊んだ時間・出発・倒れた・支度切れ・ボスを初めて倒した時間とレベル
-function renderRecords() {
-  const st = state.stats;
-  const rows = [
-    ['遊んだ時間', secs(state.tick)],
-    ['出発', `${st.departures}回`],
-    ['倒れて帰った', `${st.returns.down}回`],
-    ['支度が切れて帰った', `${st.returns.prep}回`],
-  ];
-  if (isOpen(state, 'stage:forge')) rows.push(['打った（手で）', `${(st.crafted ?? 0) - (st.autoCrafted ?? 0)}回（会心 ${st.crits ?? 0}）`]);
-  if (st.autoCrafted) rows.push(['職人が打った', `${st.autoCrafted}回`]);
-  if (st.crafterMerges) rows.push(['職人が合わせた', `${st.crafterMerges}回`]);
-  if (isOpen(state, 'stage:dojo')) rows.push(['解いた巻物', `${st.scrolls ?? 0}枚`]);
-  for (const id of state.open.regions) {
-    const fb = st.firstBoss?.[id];
-    if (fb || id === state.run.region) rows.push([`地域${id}のボス`, fb ? `${secs(fb.tick)}（Lv${fb.level}）` : 'まだ']);
-  }
-  const html = rows.map(([k, v]) => `<div><dt>${k}</dt><dd class="num">${v}</dd></div>`).join('');
-  const el = $('records');
-  if (el.dataset.key !== html) {
-    el.dataset.key = html;
-    el.innerHTML = html;
-  }
-}
-
 // 画面のまとめ（試すときに読む）
 window.describeUI = () => ({
   version: APP_VERSION,
@@ -527,6 +537,8 @@ window.describeUI = () => ({
   tab,
   mid,
   dojo: state.dojo,
+  split: state.split,
+  crafter: state.crafter,
 });
 
 // 段のタブ（スマホ。判定表 第3回 F1）
@@ -565,6 +577,7 @@ for (const b of document.querySelectorAll('.mid-go')) {
 
 const forgeUI = createForgeUI({ get: () => state, set: (s) => { state = s; }, log });
 const dojoUI = createDojoUI({ get: () => state, set: (s) => { state = s; }, log });
+const autoUI = createAutoUI({ get: () => state, set: (s) => { state = s; }, log });
 
 $('version').textContent = APP_VERSION;
 $('speed-note').textContent = (SPEED !== 1 ? `　速さ ×${SPEED}` : '') + (TEST ? `　試す：${TEST}` : '');
