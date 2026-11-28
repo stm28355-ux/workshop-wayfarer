@@ -13,12 +13,13 @@ export function targetsOf(kind, slot, tier) {
   return targets ? { band, targets } : null;
 }
 
-export function newSession({ kind, slot, tier, conc, fire }) {
+// tools：燃料に入っている欠片の種類（燃料で使える叩き方。判定表 第16回 B1）。
+export function newSession({ kind, slot, tier, conc, fire, tools = [] }) {
   const t = targetsOf(kind, slot, tier);
   if (!t) throw new RangeError(`打てない：${kind} ${slot} 格${tier}`);
   const perLevel = GEAR_KINDS[kind].perLevel;
   return {
-    kind, slot, tier,
+    kind, slot, tier, tools: tools.slice(), quirk: GEAR_KINDS[kind].quirk ?? null,
     band: t.band.id, w: t.band.w, h: t.band.h,
     targets: t.targets.slice(),
     values: t.targets.map(() => 0),
@@ -29,23 +30,47 @@ export function newSession({ kind, slot, tier, conc, fire }) {
 }
 
 // 叩き方 id でマス cell を叩くと伸びるマス。縦打ちは押したマスと下のマス（一番下の段なら上のマスと）。
+// 十字打ちは押したマスと上下左右（盤の中だけ）、横薙ぎは押したマスの横1列。
 export function strikeCells(session, id, cell) {
   const s = STRIKES[id];
-  if (!s || cell < 0 || cell >= session.values.length) return [];
+  const n = session.values.length;
+  if (!s || cell < 0 || cell >= n) return [];
+  const w = session.w;
   if (s.shape === 'one') return [cell];
-  const below = cell + session.w;
-  return below < session.values.length ? [cell, below] : [cell - session.w, cell];
+  if (s.shape === 'row') {
+    const y = Math.floor(cell / w);
+    return Array.from({ length: w }, (_, x) => y * w + x);
+  }
+  if (s.shape === 'cross') {
+    const x = cell % w;
+    const out = [cell];
+    if (cell - w >= 0) out.push(cell - w);
+    if (cell + w < n) out.push(cell + w);
+    if (x > 0) out.push(cell - 1);
+    if (x < w - 1) out.push(cell + 1);
+    return out.sort((a, b) => a - b);
+  }
+  const below = cell + w;
+  return below < n ? [cell, below] : [cell - w, cell];
 }
 
-// 今の温度で叩き方 id が伸ばす量（1マスあたり）。
+// 今の温度で叩き方 id が伸ばす量（1マスあたり。均しは −1）。
 export function strikeAmount(session, id) {
   if (session.temp > 2) return 0;
-  return Math.floor(STRIKES[id].amount * TEMPS[session.temp].mult);
+  const s = STRIKES[id];
+  if (s.fixed) return s.amount;
+  return Math.floor(s.amount * TEMPS[session.temp].mult);
+}
+
+// 燃料に要る欠片が入っているか。
+export function hasTool(session, id) {
+  const s = STRIKES[id];
+  return !!s && (!s.needs || (session.tools ?? []).includes(s.needs));
 }
 
 export function canStrike(session, id) {
   const s = STRIKES[id];
-  return !!s && session.temp <= 2 && session.conc >= s.cost && strikeAmount(session, id) > 0;
+  return !!s && hasTool(session, id) && session.temp <= 2 && session.conc >= s.cost && strikeAmount(session, id) !== 0;
 }
 
 // 叩く前に見せる伸び：[{ index, amount }]
@@ -55,11 +80,13 @@ export function preview(session, id, cell) {
   return strikeCells(session, id, cell).map((index) => ({ index, amount }));
 }
 
+// 叩くと冷める。段が下がるとき、魔銀は全部のマスが1下がる（判定表 第16回 C1）。
 function cool(s) {
   s.left -= 1;
   if (s.left === 0) {
     s.temp += 1;
     s.left = s.perLevel;
+    if (s.quirk === 'decay') s.values = s.values.map((v) => Math.max(0, v - 1));
   }
 }
 
@@ -69,7 +96,7 @@ export function strike(session, id, cell) {
   if (cells.length === 0) return null;
   const amount = strikeAmount(session, id);
   const s = { ...session, values: session.values.slice(), log: [...session.log, [id, cell]] };
-  for (const c of cells) s.values[c] += amount;
+  for (const c of cells) s.values[c] = Math.max(0, s.values[c] + amount);
   s.conc -= STRIKES[id].cost;
   cool(s);
   return s;

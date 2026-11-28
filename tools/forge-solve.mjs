@@ -12,7 +12,8 @@ import { newSession, strikeCells, replay, score, cellQuality } from '../src/core
 function movesOf(start) {
   const moves = [];
   const seen = new Set();
-  for (const id of Object.keys(STRIKES)) {
+  // 燃料で使える叩き方（第16回 B）は入れない（全部を調べると遅すぎる。9マスと燃料の叩き方は tools/forge-beam.mjs）
+  for (const id of Object.keys(STRIKES).filter((k) => !STRIKES[k].needs)) {
     for (let c = 0; c < start.values.length; c++) {
       const cells = strikeCells(start, id, c);
       const key = `${id}:${cells.join('+')}`;
