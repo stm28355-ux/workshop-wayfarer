@@ -78,9 +78,11 @@ export const REGIONS = Object.freeze([
     // 判定表 第18回 G3：tools/r4-sim.mjs で予定表の勇者（地域3を出るとき・地域4を出るとき）を戦わせて決めた。
     // 盾は1回の攻撃を1枚で防ぐので、大きな一撃の前に連撃・連射・雷で盾をはがす並びが要る。
     // 支度の減りは落とし物の価値に合わせて地域3（1.5）の2倍。
+    // 工程9（Issue #25）：通しのボット（tools/region-time.mjs CHAIN=1）で地域4〜6 を続けて回すと、ボス 7000 では雪山が約90分（予定46分）・沼地が約16分（予定57分）。
+    // 雪山のボスを 5500、沼地のボスを 30000 にして 68・48・80分（合わせて約196分、予定189分）。
     id: 4, name: '雪山', wall: '盾（多段）', gap: 30, drain: 3, bossAt: 2400,
     enemy: { name: '盾の兵', hp: 180, hpStep: 2, atk: 10, atkEvery: 30, hits: 1, traits: { shield: 2, shieldSec: 3 } },
-    boss: { name: '氷の門番', hp: 7000, atk: 16, hits: 1, traits: { shield: 4, shieldSec: 3 } },
+    boss: { name: '氷の門番', hp: 5500, atk: 16, hits: 1, traits: { shield: 4, shieldSec: 3 } },
     drops: [{ kind: 'mithril', rank: 2 }, { kind: 'ice', rank: 3 }, { kind: 'thunder', rank: 2 }, { kind: 'mithril', rank: 3 }],
     unlocks: ['region:5', 'disciple', 'school:summon', 'school:stealth'],
   },
@@ -90,7 +92,7 @@ export const REGIONS = Object.freeze([
     // 支度の減りは落とし物に合わせて地域4（3）の2倍。
     id: 5, name: '沼地', wall: '回復する敵', gap: 30, drain: 6, bossAt: 2700,
     enemy: { name: '沼の影', hp: 400, hpStep: 4, atk: 26, atkEvery: 30, hits: 1, traits: { regenPct: 0.04 } },
-    boss: { name: '沼の主', hp: 16000, atk: 24, hits: 1, traits: { regenPct: 0.01 } },
+    boss: { name: '沼の主', hp: 30000, atk: 24, hits: 1, traits: { regenPct: 0.01 } },
     drops: [{ kind: 'mithril', rank: 3 }, { kind: 'dragon', rank: 2 }, { kind: 'thunder', rank: 3 }, { kind: 'dragon', rank: 3 }],
     unlocks: ['region:6', 'split'],
   },
