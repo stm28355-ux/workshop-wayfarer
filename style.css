@@ -1,9 +1,9 @@
 :root {
   --bg: #1d2128;
-  --panel: #262b34;
+  --panel: #2b313b; /* 判定表 第24回「暗さ」：欄と地の差を少し大きく */
   --ink: #f1ede4;
   --quiet: #a9a59b;
-  --line: #3a404c;
+  --line: #464d5a;
   --accent: #e0a85a;
   --good: #8fd18f;
   --bad: #e88a6a;
@@ -45,16 +45,26 @@ button { font: inherit; color: inherit; }
 /* 冒険の帯 */
 .band { background: var(--panel); border-radius: 12px; padding: 12px 16px; display: grid; gap: 10px; }
 /* 工程8（判定表 第23回 L1・L2）：左に勇者、右に戦いの絵 */
-@media (min-width: 760px) { .band { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); } .band .log { grid-column: 1 / -1; } }
+@media (min-width: 760px) { .band { grid-template-columns: minmax(250px, 300px) minmax(0, 1fr); } .band .log { grid-column: 1 / -1; } }
+@media (min-width: 1100px) {
+  .band { grid-template-columns: minmax(250px, 290px) minmax(0, 1fr) minmax(220px, 300px); align-items: stretch; }
+  .band .log { grid-column: 3; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 12px; align-content: start; }
+  .band .log li { white-space: normal; overflow: visible; }
+}
+.regions { display: flex; flex-wrap: wrap; gap: 4px; }
+.region-btn { min-height: 30px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--line); background: #1a1e24; color: var(--ink); cursor: pointer; font-size: 0.85rem; }
+.region-btn[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, #1a1e24); }
+#region-note:empty { display: none; }
 .hero-panel { display: grid; gap: 6px; align-content: start; }
 .hero-panel p { margin: 0; }
 .meter-row { display: grid; grid-template-columns: 3.6em minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 0.85rem; }
 .meter-row .meter { width: 100%; }
 .meter.xp > span { background: #9b7fd4; }
-.scene { position: relative; min-height: 150px; height: 100%; max-height: 210px; border-radius: 10px; overflow: hidden; background: #111; border: 1px solid var(--line); }
+.scene { position: relative; height: 170px; border-radius: 10px; overflow: hidden; background: #111; border: 1px solid var(--line); }
 .scene-bg { position: absolute; inset: 0; display: flex; width: 200%; }
 .scene-bg svg { width: 50%; height: 100%; flex: none; }
-.scene.walking .scene-bg { animation: scene-scroll 16s linear infinite; }
+.scene-bg { animation: scene-scroll 16s linear infinite; animation-play-state: paused; }
+.scene.walking .scene-bg { animation-play-state: running; }
 @keyframes scene-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .scene-hero, .scene-enemy { position: absolute; bottom: 10%; }
 .scene-hero { left: 22%; } .scene-enemy { left: 60%; }
@@ -66,12 +76,11 @@ button { font: inherit; color: inherit; }
 .scene.walking .scene-hero .hero-walk { animation: step-b 0.5s steps(1) infinite; }
 @keyframes step-a { 0% { visibility: visible; } 50% { visibility: hidden; } }
 @keyframes step-b { 0% { visibility: hidden; } 50% { visibility: visible; } }
-.scene.fighting .scene-hero { animation: lunge var(--atk, 1s) steps(1) infinite; }
+.scene.fighting .scene-hero { animation: lunge var(--atk, 1s) ease-in-out infinite; }
 .scene.fighting .scene-hero .hero-stand { animation: step-a var(--atk, 1s) steps(1) infinite; }
 .scene.fighting .scene-hero .hero-strike { animation: step-b var(--atk, 1s) steps(1) infinite; }
-@keyframes lunge { 0% { transform: translateX(0); } 50% { transform: translateX(10px); } }
-.scene-enemy.hit { animation: enemy-hit 0.18s; }
-@keyframes enemy-hit { 50% { transform: translateX(4px); filter: brightness(1.8); } }
+@keyframes lunge { 0%, 100% { transform: translateX(0); } 40% { transform: translateX(6px); } }
+
 .scene-fx { position: absolute; inset: 0; pointer-events: none; }
 .scene-fx .dmg { position: absolute; left: 64%; bottom: 46%; font-weight: 800; color: #fff; text-shadow: 0 1px 0 #000, 0 0 4px #000; animation: dmg-up 0.8s forwards; font-variant-numeric: tabular-nums; }
 .scene-fx .dmg.card { color: var(--accent); left: 22%; bottom: 62%; font-size: 0.8rem; }
@@ -118,17 +127,14 @@ button { font: inherit; color: inherit; }
 .stage { display: grid; gap: 16px; }
 /* 工程8（判定表 第23回 L4）：荷車のすぐ右に使い道、その右に鍛冶場／修練場 */
 @media (min-width: 760px) {
-  .stage { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: start; }
+  .stage { grid-template-columns: minmax(0, 440px) minmax(0, 1fr); align-items: start; }
   .stage .board-side { grid-column: 1; grid-row: 1; }
-  .stage .exit-side { grid-column: 2; grid-row: 1; }
-  .stage .forge-side, .stage .dojo-side { grid-column: 1 / -1; grid-row: 2; }
+  .stage .exit-side { grid-column: 1; grid-row: 2; }
+  .stage .forge-side, .stage .dojo-side { grid-column: 2; grid-row: 1 / span 2; }
 }
 @media (min-width: 1200px) {
   /* PC：盤・打ち分け・出口を横に並べる（判定表 第3回 F1） */
-  .stage { grid-template-columns: minmax(0, 440px) minmax(0, 230px) minmax(0, 1fr); }
-  .stage .board-side { grid-column: 1; grid-row: 1; }
-  .stage .exit-side { grid-column: 2; grid-row: 1; }
-  .stage .forge-side, .stage .dojo-side { grid-column: 3; grid-row: 1; }
+  .stage { grid-template-columns: minmax(0, 440px) minmax(0, 1fr); }
   .exits { grid-template-columns: minmax(0, 1fr); }
 }
 .stage h2 { margin: 0 0 8px; font-size: 1rem; color: var(--quiet); font-weight: 600; }
@@ -319,7 +325,12 @@ dialog li { margin-bottom: 6px; }
   .exit { grid-template-columns: 1fr; justify-items: center; text-align: center; }
   .exit .exit-art { grid-row: auto; }
   .exit-art svg.px { width: 24px; height: 24px; }
-  .scene { min-height: 130px; }
+  /* スマホ（判定表 第24回 U1 案A）：戦いの絵を低く */
+  .scene { height: 90px; }
+  .scene-hero { width: 44px; height: 44px; }
+  .scene-hero svg, .scene-enemy svg { width: 44px !important; height: 44px !important; }
+  .scene-hero svg { width: 44px; height: 44px; }
+  .scene-top { font-size: 0.7rem; }
   .exit-sub { font-size: 0.7rem; }
   .exit-gain { font-size: 0.75rem; }
   .rates { font-size: 0.8rem; margin-top: 8px; }
@@ -390,7 +401,7 @@ dialog li { margin-bottom: 6px; }
 .tree { display: grid; gap: 6px; margin: 8px 0; }
 /* 樹形図（Issue #8） */
 .tree-wrap { position: relative; overflow-x: auto; margin: 8px 0; padding-bottom: 4px; }
-.tree2 { display: grid; grid-template-columns: minmax(76px, auto) 2.6em repeat(4, minmax(78px, auto)) minmax(78px, auto); grid-auto-rows: minmax(44px, auto); column-gap: 18px; row-gap: 8px; align-items: center; width: max-content; position: relative; z-index: 1; }
+.tree2 { display: grid; grid-template-columns: minmax(70px, auto) 2.4em repeat(4, minmax(70px, auto)) minmax(70px, auto); grid-auto-rows: minmax(44px, auto); column-gap: 14px; row-gap: 8px; align-items: center; width: max-content; position: relative; z-index: 1; }
 .tree2 .node { align-self: center; }
 .tree-branch { color: var(--quiet); font-size: 0.75rem; writing-mode: horizontal-tb; }
 .tree-lines { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 0; overflow: visible; }
@@ -562,7 +573,11 @@ dialog li { margin-bottom: 6px; }
 .bc .hint { position: absolute; left: 2px; bottom: 1px; font-style: normal; font-size: 0.6rem; color: var(--accent); font-weight: 600; }
 
 /* 工程8：使い道は荷車の横に縦1列（スマホは上の 4列のまま） */
-@media (min-width: 601px) { .exits { grid-template-columns: minmax(0, 1fr); } .exit { min-height: 0; } }
+@media (min-width: 601px) {
+  .exits { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .exit { min-height: 0; grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 6px; }
+  .exit .exit-art { grid-row: auto; }
+}
 
 .chip svg.px { width: 22px; height: 22px; image-rendering: pixelated; vertical-align: middle; }
 .gear-art svg.px { width: 20px; height: 20px; image-rendering: pixelated; vertical-align: middle; margin-right: 4px; display: inline-block; }
