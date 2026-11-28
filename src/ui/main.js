@@ -2,7 +2,7 @@
 import { APP_VERSION } from '../version.js';
 import { createGame, advance, feed, moveItem, chooseRegion, region, isOpen, restartRun, craftable } from '../core/game.js';
 import { xpToNext } from '../core/hero.js';
-import { heroStats, damageTaken, intervalText } from '../core/gear.js';
+import { heroStats, damageTaken, intervalText, applyCraft } from '../core/gear.js';
 import { rankValue } from '../core/rank.js';
 import { TICKS_PER_SEC, PREP, KINDS } from '../data/balance.js';
 import { load, save, clear } from './save.js';
@@ -11,8 +11,8 @@ import { createDojoUI } from './dojo-ui.js';
 import { createAutoUI } from './auto-ui.js';
 import { planAfterRegion2 } from '../core/plan.js';
 import { SWORD_TREE } from '../data/sword.js';
-import { activeCards } from '../core/lineup.js';
-import { CARDS } from '../data/cards.js';
+import { activeCards, enemyElem, setLineup } from '../core/lineup.js';
+import { CARDS, ELEMENT_NAMES_JA, WEAKNESS } from '../data/cards.js';
 
 const params = new URLSearchParams(location.search);
 const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
@@ -28,7 +28,8 @@ const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
 //   魔法：火球・雷撃は 4×4 の変えあり、火の心・氷の槍は 6×6。弓：連射・風の矢は 5×5 の変えあり、早手・狙い撃ちは 7×7。
 // ?test=summon は地域4のボスの後で、召喚と隠密の流派が開いていて巻物の形を一通り試せ、竜の鱗・星鉄・鉄で格5・6 を打てる（工程7d）。
 //   召喚：狼・岩の守り手は 5×5 の変えあり、獣の声・精霊の声は 7×7。隠密：毒の刃・煙玉は 5×5 の変えあり、足音・影縫いは 7×7。
-const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto', 'sword', 'forge3', 'magic', 'summon'].includes(params.get('test')) ? params.get('test') : null;
+// ?test=r6 は地域5のボスの後で、予定表の「地域6を出るとき」の勇者（レベル17・格5・並びつき）が魔王の城の入口にいる（工程7e）。魔王と終わりを見られる。
+const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto', 'sword', 'forge3', 'magic', 'summon', 'r6'].includes(params.get('test')) ? params.get('test') : null;
 const SLOT = TEST ? `test-${TEST}` : undefined;
 const TICK_MS = 1000 / TICKS_PER_SEC;
 const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
@@ -51,6 +52,40 @@ function testState(mode) {
   if (mode === 'r3') return planAfterRegion2();
   if (mode === 'auto') return autoState();
   if (mode === 'forge3') return forge3State();
+  if (mode === 'r6') {
+    const s = forge3State();
+    for (const id of [4, 5]) {
+      s.cleared.push(id);
+      for (const key of region(id).unlocks) {
+        const [what, arg] = key.split(':');
+        if (what === 'region') { if (!s.open.regions.includes(Number(arg))) s.open.regions.push(Number(arg)); }
+        else if (!s.open.unlocks.includes(key)) s.open.unlocks.push(key);
+      }
+    }
+    s.hero.level = 17;
+    let items = {};
+    for (const [k, slot, tier, q] of [['iron', 'weapon', 5, 0.95], ['iron', 'weapon', 5, 0.95], ['copper', 'armor', 5, 0.9], ['fire', 'accessory', 4, 1], ['stone', 'accessory', 4, 0.9], ['thunder', 'accessory', 4, 0.9], ['wind', 'accessory', 4, 0.9], ['ice', 'accessory', 4, 0.9]]) items = applyCraft(items, k, slot, tier, q).items;
+    s.gear = { items, equip: { weapon: 'iron:weapon', armor: 'copper:armor' } };
+    const skill = {
+      kamae: 6, kaeshi: 4, tateuchi: 6, ibuki: 2, tame: 6, nigiri: 6, suburi: 4, renda: 8, ashi: 4, nidan: 6, rikimi: 4, jujigiri: 8, togi: 2, issen: 8,
+      eishou: 4, ikazuchinokokoro: 4, raigeki: 8, hinokokoro: 4, kakyu: 6, tsuru: 4, hayate: 4, rensha: 6, kazeyomi: 4, kazeya: 6,
+      keiyaku: 4, kemonogoe: 4, ookami: 8, kehai: 4, dokuchishiki: 4, dokuba: 8,
+      // tools/r4-sim.mjs（REGION=6）の「地域6を出るとき」と同じ節
+      funbari: 2, hanika: 2, chougou: 2, nuri: 2, hyoso: 6, matou: 4, samuke: 2, mizunokokoro: 4, netsu: 2,
+      kagenui: 4, ashioto: 2, tsuranuki: 2, shinobi: 2, kemuri: 4, migaru: 2,
+    };
+    for (const [id, v] of Object.entries(skill)) s.dojo.nodes[id] = { skill: v };
+    const t = setLineup(s, 6, ['nidan', 'rensha', 'renda', 'tame', 'issen', 'dokuba', 'ookami', 'raigeki']).state;
+    t.nextRegion = 6;
+    const u = restartRun(t);
+    u.run.hp = heroStats(u).maxHp;
+    // 魔王をすぐ見られるように、ボスの少し手前から（支度は多め）
+    u.run.wait = 0;
+    u.run.prep *= 20;
+    u.run.step = region(6).bossAt - 100;
+    u.run.nextEnemyAt = region(6).bossAt + 1;
+    return u;
+  }
   if (mode === 'summon') {
     const s = forge3State();
     s.cleared.push(4);
@@ -186,6 +221,7 @@ function handle(events) {
     } else if (e.type === 'unlock') {
       const name = unlockName(e.key);
       if (name) log(`${name}が開いた`, 'good');
+      if (e.key === 'ending') showEnding(); // 魔王を倒した（工程7e）
     } else if (e.type === 'line') {
       // 技の並びの効き（判定表 第9回 C5）：戦いごとに数える
       if (e.what === 'dodge' || e.what === 'focus') fightNotes.dodge += 1;
@@ -222,6 +258,28 @@ function handleReturn(e) {
   else if (e.reason === 'down') log(`倒れて村へ帰った（${e.step}歩）。支度の残りは失った`, 'bad');
 }
 
+// 終わりの窓（工程7e）：魔王を初めて倒したときに、ここまでの記録を出す。そのまま続けて遊べる。
+function showEnding() {
+  const s = state;
+  const min = Math.round(s.tick / TICKS_PER_SEC / 60);
+  const h = heroStats(s);
+  const tier = (slot) => (s.gear.equip[slot] ? s.gear.items[s.gear.equip[slot]].tier : 0);
+  const nodes = Object.values(s.dojo?.nodes ?? {}).filter((n) => n.skill > 0).length;
+  const rows = [
+    ['遊んだ時間', `${Math.floor(min / 60)}時間${min % 60}分`],
+    ['レベル', `${s.hero.level}（攻撃 ${Math.round(h.atk)}・HP ${Math.round(h.maxHp)}）`],
+    ['武器と防具の格', `${tier('weapon')}・${tier('armor')}`],
+    ['道場の節', `${nodes}節（巻物 ${s.stats.scrolls ?? 0}枚・門下生 ${s.stats.discipleScrolls ?? 0}枚）`],
+    ['打った装備', `${s.stats.crafted ?? 0}回（職人 ${s.stats.autoCrafted ?? 0}回・会心 ${s.stats.crits ?? 0}回）`],
+    ['倒した敵', `${s.stats.kills}体（出発 ${s.stats.departures}回・倒れた ${s.stats.returns?.down ?? 0}回）`],
+    ['合わせた回数', `${s.stats.merges}回（職人 ${s.stats.crafterMerges}回）`],
+  ];
+  $('ending-body').innerHTML = '<p>工房の旅人は、魔王の城の奥で魔王を倒した。マージの盤と打ち分けと道場で育てた力の記録：</p>' +
+    `<table class="ledger-table"><tbody>${rows.map(([k, v]) => `<tr><th>${k}</th><td class="num">${v}</td></tr>`).join('')}</tbody></table>` +
+    '<p class="small quiet">この後も、どの地域へも行けて、巻物と装備を育て続けられる。</p>';
+  if (!$('ending').open) $('ending').showModal();
+}
+
 function unlockName(key) {
   const [what, arg] = key.split(':');
   if (what === 'region') return `地域${arg}「${region(Number(arg)).name}」`;
@@ -232,6 +290,7 @@ function unlockName(key) {
   if (key === 'stage:dojo') return '段3 道場';
   if (key === 'disciple') return '門下生';
   if (key === 'split') return '振り分け';
+  if (key === 'ending') return null; // 終わりの窓で知らせる
   return null;
 }
 
@@ -500,7 +559,9 @@ function render(now) {
 
   const f = run.fight;
   if (f) {
-    $('fight-name').textContent = f.boss ? `ボス：${reg.boss.name}` : `${reg.enemy.name}（${run.enemyIndex + 1}体目）`;
+    const el = enemyElem(f, s.tick);
+    const elText = el ? `　${ELEMENT_NAMES_JA[el]}の敵（${ELEMENT_NAMES_JA[WEAKNESS[el]]}に弱い・${ELEMENT_NAMES_JA[el]}が効きにくい）` : '';
+    $('fight-name').textContent = (f.boss ? `ボス：${reg.boss.name}` : `${reg.enemy.name}（${run.enemyIndex + 1}体目）`) + elText;
     $('enemy-meter').hidden = false;
     setBar('enemy-bar', f.hp / f.maxHp);
     const hit = damageTaken(f.atk, heroStats(s).guard);

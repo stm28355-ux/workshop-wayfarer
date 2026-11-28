@@ -4,7 +4,7 @@
 // 並びの進み（line）は出発ごとに頭から。歩いている間は止まり、次の敵で続きを使う。
 // 戦いの1刻みの手（heroAct・enemyAct・tickFight）は、ゲームと木人で同じ物を使う。
 
-import { CARDS, LINEUP, STATES, SHELL_MIN, ELEMENT_STATES as ES, BLUNT } from '../data/cards.js';
+import { CARDS, LINEUP, STATES, SHELL_MIN, ELEMENT_STATES as ES, BLUNT, WEAKNESS } from '../data/cards.js';
 import { ALL_NODES } from '../data/schools.js';
 import { GEAR_KINDS } from '../data/forge.js';
 import { TICKS_PER_SEC } from '../data/balance.js';
@@ -96,6 +96,24 @@ function addBleed(ctx, n) {
 export function isFrozen(f, tick) {
   return (f.frozenUntil ?? -1) > tick;
 }
+// 敵の今の属性（工程7e）。魔王は elemSec 秒ごとに elemCycle の順で変わる。
+export function enemyElem(f, tick) {
+  if (f.elemCycle?.length) {
+    const k = Math.floor(Math.max(0, tick - (f.start ?? 0)) / (f.elemSec * TICKS_PER_SEC)) % f.elemCycle.length;
+    return f.elemCycle[k];
+  }
+  return f.elem ?? null;
+}
+
+// 属性の倍率：弱点 ×1.5、同じ属性 ×0.5、ほかは ×1。
+export function elemMult(f, tick, elem) {
+  const e = enemyElem(f, tick);
+  if (!e || !elem) return 1;
+  if (WEAKNESS[e] === elem) return ES.weak;
+  if (e === elem) return ES.resist;
+  return 1;
+}
+
 // 止まっている（凍結か影縫い）。
 export function isHeld(f, tick) {
   return isFrozen(f, tick) || (f.holdUntil ?? -1) > tick;
@@ -149,7 +167,9 @@ function applyTech(ctx, c, p, area = false, extra = {}) {
   const { hero, line, f, tick } = ctx;
   let dealt = 0;
   const bodies = area || c.area ? f.swarm ?? 1 : 1;
-  const em = applyElement(ctx, c, extra.id, p, extra.wet);
+  // 属性の倍率（工程7e）。水をまとった技で属性のない物は水の技になる
+  const atkElem = c.elem ?? (extra.wet ? 'water' : null);
+  const em = applyElement(ctx, c, extra.id, p, extra.wet) * elemMult(f, tick, atkElem);
   if (c.damage) {
     for (let b = 0; b < bodies; b++) for (let k = 0; k < (c.hits ?? 1); k++) dealt += hitEnemy(f, hero.atk * c.damage * p * em, tick, !!c.pierce || !!extra.pierce, !!extra.unshield);
   }
@@ -372,7 +392,8 @@ export function tickFight(ctx) {
       if (pt.cd > 0) continue;
       pt.cd = pt.every;
       const bodies = pt.area ? f.swarm ?? 1 : 1;
-      for (let b = 0; b < bodies; b++) dealt += hitEnemy(f, pt.dmg, ctx.tick);
+      const pm = elemMult(f, ctx.tick, pt.elem);
+      for (let b = 0; b < bodies; b++) dealt += hitEnemy(f, pt.dmg * pm, ctx.tick);
       if (pt.elem === 'fire' && !isWet(f, ctx.tick)) f.burn = { left: ES.burnTimes, per: pt.dmg * 0.5, cd: ES.burnEvery * TICKS_PER_SEC };
     }
     line.pets = line.pets.filter((pt) => pt.until > ctx.tick);

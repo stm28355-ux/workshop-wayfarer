@@ -90,7 +90,12 @@ export const ELEMENT_STATES = Object.freeze({
   shockHits: 3,
   markSec: 10, markTaken: 1.2,
   poisonSec: 8, poisonPer: 0.2, // 毒（工程7d）：毎秒 攻撃×poisonPer、毒の間は回復しない
+  weak: 1.5, resist: 0.5, // 敵の属性（工程7e）：弱点は×1.5、同じ属性は×0.5
 });
+
+// 敵の属性と弱点（工程7e：魔王の城）。水をまとった技は水の技になる。
+export const ELEMENT_NAMES_JA = Object.freeze({ fire: '火', water: '水', ice: '氷', thunder: '雷', wind: '風' });
+export const WEAKNESS = Object.freeze({ fire: 'water', ice: 'fire', thunder: 'wind', water: 'thunder' });
 
 // 殻を通るダメージの下限（殻より小さい攻撃でも元の1割は通る）。
 export const SHELL_MIN = 0.1;

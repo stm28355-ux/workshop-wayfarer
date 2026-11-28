@@ -34,6 +34,8 @@ if (r4arg) {
     if (k === 'regen') r.enemy.traits = { ...r.enemy.traits, regenPct: n };
     if (k === 'bregen') r.boss.traits = { ...r.boss.traits, regenPct: n };
     if (k === 'drain') r.drain = n;
+    if (k === 'bshell') r.boss.traits = { ...r.boss.traits, shell: n };
+    if (k === 'scale') r.enemy.traitCycle = r.enemy.traitCycle?.map((t) => ({ ...t, ...(t.shell ? { shell: Math.round(t.shell * n) } : {}) }));
   }
 }
 const r4 = region(R);
@@ -186,7 +188,30 @@ const PROFILES5 = {
   },
 };
 PROFILES5.r4exit.tries = [...(PROFILES4.r4exit.tries ?? []), ['nidan', 'renda', 'renda', 'tame', 'issen']];
-const PROFILES = R === 5 ? PROFILES5 : PROFILES4;
+// 地域6（魔王の城：属性と全部）の勇者（工程7e。予定表：地域6を出るとき レベル17・格5・枠8）
+const PROFILES6 = {
+  r5exit: { ...PROFILES5.r5exit, name: '地域5を出るとき（レベル15・格4）', level: 15 },
+  r6exit: {
+    name: '地域6を出るとき（レベル17・格5）',
+    level: Number(process.env.L6 ?? 17),
+    crafts: [['iron', 'weapon', 5, 0.95], ['iron', 'weapon', 5, 0.95], ['copper', 'armor', 5, 0.9], ['fire', 'accessory', 4, 1], ['stone', 'accessory', 4, 0.9], ['thunder', 'accessory', 4, 0.9], ['wind', 'accessory', 4, 0.9], ['ice', 'accessory', 4, 0.9]],
+    nodes: {
+      ...PROFILES5.r5exit.nodes,
+      kakyu: 6, hyoso: 6, raigeki: 8, matou: 4, samuke: 2, mizunokokoro: 4, hinokokoro: 4, netsu: 2,
+      kazeya: 6, kazeyomi: 4, ookami: 8, dokuba: 8, kagenui: 4, ashioto: 2, tsuranuki: 2, shinobi: 2, kemuri: 4, migaru: 2,
+    },
+    lineup: ['raigeki', 'rensha', 'tame', 'issen', 'dokuba', 'ookami', 'kakyu', 'kazeya'],
+    tries: [
+      ['raigeki', 'rensha', 'tame', 'issen', 'dokuba', 'ookami', 'kakyu', 'kazeya'],
+      ['shinobi', 'tame', 'issen', 'raigeki', 'kakyu', 'kazeya', 'matou', 'raigeki'],
+      ['nidan', 'rensha', 'renda', 'tame', 'issen', 'dokuba', 'ookami', 'raigeki'],
+      ['matou', 'jujigiri', 'raigeki', 'kakyu', 'kazeya', 'hyoso', 'tame', 'issen'],
+      ['ookami', 'ookami', 'raigeki', 'kazeya', 'kakyu', 'matou', 'jujigiri', 'tame'],
+    ],
+  },
+};
+PROFILES6.r5exit.tries = PROFILES5.r5exit.tries;
+const PROFILES = R === 6 ? PROFILES6 : R === 5 ? PROFILES5 : PROFILES4;
 
 for (const [key, p] of Object.entries(PROFILES)) {
   // ボス戦で一番よい並びを選ぶ（勝ちで一番速い、なければ一番長くもつ）
