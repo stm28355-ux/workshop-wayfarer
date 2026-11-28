@@ -143,18 +143,37 @@ button { font: inherit; color: inherit; }
 .rates b { color: var(--ink); }
 .version { margin: 8px 0 0; color: var(--quiet); font-size: 0.8rem; }
 
-.records { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; font-size: 0.85rem; }
-.records summary { color: var(--quiet); cursor: pointer; min-height: 28px; }
-.records dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 16px; margin: 4px 0 0; }
-.records dl > div { display: flex; justify-content: space-between; gap: 8px; }
-.records dt { color: var(--quiet); }
-.records dd { margin: 0; }
+/* 帳簿（判定表 第11回 C） */
+.ledger h3 { margin: 14px 0 6px; font-size: 0.95rem; color: var(--quiet); }
+.ledger-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+@media (max-width: 480px) { .ledger-table { font-size: 0.78rem; } .ledger-table th, .ledger-table td { padding: 3px 3px; } }
+.ledger-table th, .ledger-table td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); }
+.ledger-table th { color: var(--quiet); font-weight: 600; }
+.ledger-table td small { color: var(--quiet); }
+.ledger-table tr.now td { color: var(--ink); background: color-mix(in srgb, var(--good) 8%, transparent); }
+.ledger-table .late { color: var(--bad); }
+.ledger-dl { display: grid; grid-template-columns: 1fr; gap: 2px; margin: 0; font-size: 0.85rem; }
+.ledger-dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 8px; }
+.ledger-dl dt { color: var(--quiet); }
+.ledger-dl dd { margin: 0 0 0 auto; text-align: right; }
+/* 振り分け・門下生（判定表 第11回 A・B） */
+.split { margin-top: 10px; }
+.split h3 { margin: 12px 0 6px; font-size: 0.95rem; color: var(--quiet); font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.split-rows { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.split-row { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+.split-row > span { min-width: 4.5em; }
+.split-row b { min-width: 2.6em; text-align: center; }
+.split-row.locked { opacity: 0.45; }
+.nowrap { white-space: nowrap; }
+.disciple { border: 1px solid var(--line); border-radius: 10px; padding: 4px 10px; margin: 0 0 10px; }
+.disciple p { margin: 6px 0; }
+.mini[aria-pressed="true"] { border-color: var(--good); color: var(--good); }
 
 .ghost { position: fixed; left: 0; top: 0; width: 56px; height: 56px; pointer-events: none; z-index: 10; display: grid; place-items: center; }
 .ghost[hidden] { display: none; }
 .ghost .item { width: 100%; height: 100%; opacity: 0.9; }
 
-dialog { max-width: 560px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; }
+dialog { max-width: min(560px, calc(100vw - 24px)); box-sizing: border-box; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; }
 dialog::backdrop { background: rgb(0 0 0 / 0.5); }
 dialog h2 { margin-top: 0; }
 dialog li { margin-bottom: 6px; }

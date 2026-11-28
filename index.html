@@ -12,6 +12,7 @@
   <span class="tag">試作：冒険・マージの盤・打ち分け・道場</span>
   <nav class="tools">
     <button type="button" id="btn-pause" data-act="pause">一時停止</button>
+    <button type="button" id="btn-ledger" data-act="ledger">帳簿</button>
     <button type="button" id="btn-help" data-act="help">遊び方</button>
     <button type="button" id="btn-reset" data-act="reset">はじめから</button>
   </nav>
@@ -75,23 +76,27 @@
     <div class="dojo-side" id="dojo-side" data-ui="stage3" aria-label="段3 道場">
       <div class="mid-head"><h2>段3 道場</h2><button type="button" class="mini wide mid-go" data-mid="forge">段2 打ち分けへ</button></div>
       <p id="dojo-locked" class="quiet">地域2のボスを倒すと開く。巻物を解いてスキルツリーの節を上げる。</p>
+      <div id="disciple" class="disciple" hidden></div>
       <div id="dojo-body" hidden></div>
     </div>
     <div class="exit-side">
       <h2>出口</h2>
       <div id="exits" class="exits"></div>
+      <div id="split" class="split" hidden></div>
       <div id="workshop" class="workshop" hidden></div>
       <p class="rates">毎分　拾う <b id="rate-pick" class="num">0</b>　合わせた <b id="rate-merge" class="num">0</b>　あふれ <b id="rate-over" class="num">0</b></p>
-      <details class="records" open>
-        <summary>記録（試すとき用）</summary>
-        <dl id="records"></dl>
-      </details>
       <p class="version">版 <span id="version"></span><span id="speed-note"></span></p>
     </div>
   </section>
 </main>
 
 <div id="ghost" class="ghost" hidden></div>
+
+<dialog id="ledger" class="ledger" aria-labelledby="ledger-title">
+  <h2 id="ledger-title">帳簿</h2>
+  <div id="ledger-body"></div>
+  <form method="dialog"><button type="submit">閉じる</button></form>
+</dialog>
 
 <dialog id="help" aria-labelledby="help-title">
   <h2 id="help-title">遊び方</h2>
@@ -127,6 +132,13 @@
     <li>温度は 灼熱（伸び2倍）→ 赤熱 → 暗赤（半分）。1段で叩ける回数（鉄は3回、銅は4回）を叩くと下がる。残りの回数は丸（●叩いた・○残り）で見える。「火を足す」はいつでも使え、1段熱くなってその段を最初から叩ける。冷えるか集中力が切れると仕上がる。「仕上げる」でいつでも止められる。</li>
     <li>出来は基本の50〜100%（会心は120%）。武器は攻撃、鎧は HP、盾は1回に受けるダメージを引く。アクセサリーは持っている物が全部効く。</li>
     <li>地域2のボスの後は<b>マージの職人</b>が盤を合わせ、地域3のボスの後は<b>打ち分けの職人</b>が、手で出した一番の手順で打ち続ける。</li>
+  </ul>
+  <h3>任せる（門下生・振り分け）と帳簿</h3>
+  <ul>
+    <li>マージの職人は、工房の「5個を待つ」を入れると5個そろうまで合わせない（空きが2マス以下になったら3個でも合わせる）。</li>
+    <li>地域4のボスの後は<b>門下生</b>が、90秒に1枚（工房で速くなる）巻物を解く（熟練2）。解けるのは、あなたが手で一度解いた形（変えルールの組み合わせと盤の大きさ）だけ。選んだ枝の中で、段の一番低い節から。あなたが解いている節は取らない。</li>
+    <li>地域5のボスの後は<b>振り分け</b>が、出すランク以上の物を3秒に1個、出口へ入れる。どの出口かは、入れた価値の合計が決めた割合（10%刻み）に一番足りない所。盤がいっぱいで出せる物がなければ、一番低い物を支度へ。選んでいる物・ドラッグしている物には触らない。</li>
+    <li>上の<b>帳簿</b>で、予定表の目安（その地域を出るときの時間・レベル・格・枠）と今の値、地域ごとの出発と帰った理由、出口に入れた価値などが見られる。</li>
   </ul>
   <form method="dialog"><button type="submit">閉じる</button></form>
 </dialog>

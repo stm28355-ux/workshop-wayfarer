@@ -1,12 +1,13 @@
 // 段2 打ち分けと工房の画面。ルールは src/core の関数を呼ぶだけ。
 import {
   isOpen, slotsOf, fuelPower, forgeCheck, forgeStart, forgeStrike, forgeFire, forgeFinish,
-  equipItem, setForgeAuto, upgradeCheck, buyUpgrade, widenTo, mergeCrafterTicks, mergeCrafterRank,
+  equipItem, setForgeAuto, upgradeCheck, buyUpgrade, widenTo, mergeCrafterTicks, mergeCrafterRank, setCrafterWait,
 } from '../core/game.js';
 import { planOf, mainValue, heroStats, itemKey, baseOf, statOf, intervalText } from '../core/gear.js';
 import { preview, canStrike, canFire, score, cellQuality, strikeAmount } from '../core/forge.js';
 import { GEAR, SLOTS, STRIKES, TEMPS, GEAR_KINDS, gearCost, bandOf } from '../data/forge.js';
 import { KINDS, WORKSHOP, TICKS_PER_SEC } from '../data/balance.js';
+import { discipleTicks } from '../core/dojo.js';
 
 const $ = (id) => document.getElementById(id);
 const r1 = (x) => Math.round(x * 10) / 10;
@@ -79,6 +80,9 @@ export function createForgeUI({ get, set, log }) {
       if (r.ok) set(r.state);
     } else if (act === 'auto') {
       set(setForgeAuto(s, !s.forge.auto).state);
+    } else if (act === 'wait5') {
+      set(setCrafterWait(get(), !get().crafter.wait5).state);
+      lastShop = '';
     } else if (act === 'upgrade') {
       const r = buyUpgrade(s, b.dataset.what);
       if (r.ok) log(`工房で${WORKSHOP[b.dataset.what].name}を上げた`, 'good'); else log(r.reason);
@@ -273,22 +277,27 @@ export function createForgeUI({ get, set, log }) {
     const open = s.open.exits.includes('workshop');
     $('workshop').hidden = !open;
     if (!open) return;
-    const rows = ['widen', 'arm', 'speed'].map((w) => {
+    const ws = ['widen', 'arm', 'speed'];
+    if (isOpen(s, 'disciple')) ws.push('disciple');
+    const rows = ws.map((w) => {
       const c = upgradeCheck(s, w);
       let what = '';
       if (w === 'widen') { const to = widenTo(s.board); what = to ? `${s.board.w}×${s.board.h} → ${to.w}×${to.h}` : '一番広い'; }
       if (w === 'arm') what = `ランク${mergeCrafterRank(s)}まで → ${mergeCrafterRank(s) + 1}まで`;
       if (w === 'speed') { const now = mergeCrafterTicks(s); what = `${r1(now / TICKS_PER_SEC)}秒 → ${r1(Math.max(1, Math.round(now * 0.8)) / TICKS_PER_SEC)}秒`; }
+      if (w === 'disciple') { const now = discipleTicks(s); what = `${r1(now / TICKS_PER_SEC)}秒 → ${r1(Math.max(1, Math.round(now * 0.8)) / TICKS_PER_SEC)}秒`; }
       return [w, c.ok, c.cost ?? '', what, c.ok ? '' : c.reason];
     });
     const crafter = isOpen(s, 'crafter:merge') ? `マージの職人：${r1(mergeCrafterTicks(s) / TICKS_PER_SEC)}秒に1回、ランク${mergeCrafterRank(s)}までを合わせる` : 'マージの職人は地域2のボスで来る';
-    const key = JSON.stringify([s.stock.workshop, rows, crafter]);
+    const wait = isOpen(s, 'crafter:merge') ? !!s.crafter.wait5 : null;
+    const key = JSON.stringify([s.stock.workshop, rows, crafter, wait]);
     if (key === lastShop) return;
     lastShop = key;
     $('workshop').innerHTML = `<h3>工房 <span class="num quiet">たまった ${s.stock.workshop}</span></h3>` +
       rows.map(([w, ok, cost, what, why]) => `<button type="button" class="opt shop" data-act="upgrade" data-what="${w}" ${ok ? '' : 'disabled'} title="${why}">` +
         `${WORKSHOP[w].name}<small class="num">${what}</small><small class="num">${cost ? `費用 ${cost}` : why}</small></button>`).join('') +
-      `<p class="quiet small">${crafter}</p>`;
+      `<p class="quiet small">${crafter}</p>` +
+      (wait === null ? '' : `<p class="small"><button type="button" class="mini wide" data-act="wait5" aria-pressed="${wait}">5個を待つ：${wait ? '入' : '切'}</button> <span class="quiet">入にすると5個そろうまで合わせない（空きが2マス以下なら3個でも）</span></p>`);
   }
 
   return { render, ui };

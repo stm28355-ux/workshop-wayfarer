@@ -169,7 +169,7 @@ test('地域1のボスを倒すと、地域2・工房の出口・打ち分けが
   const r = until(strong(), (e) => e.type === 'boss');
   const s = r.state;
   assert.deepEqual(s.cleared, [1]);
-  assert.deepEqual(s.stats.firstBoss[1], { tick: s.tick, level: 200 }, '初めて倒した刻みとレベルを残す');
+  assert.deepEqual(s.stats.firstBoss[1], { tick: s.tick, level: 200, weapon: 0, armor: 0, slots: 3 }, '初めて倒した刻み・レベル・格・枠を残す');
   assert.deepEqual(s.open.regions, [1, 2]);
   assert.ok(s.open.exits.includes('workshop'));
   assert.ok(s.open.unlocks.includes('stage:forge'));

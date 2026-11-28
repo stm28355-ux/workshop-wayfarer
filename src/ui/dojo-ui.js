@@ -1,6 +1,6 @@
 // 段3 道場の画面：守りのスキルツリーと巻物。ルールは src/core/dojo.js・scroll.js を呼ぶだけ。
 import {
-  levelOf, skillOf, isNodeOpen, nodeStats, scrollSpec, scrollCheck, startScroll, scrollOpen, scrollFlag, scrollTech, quitScroll, nodeOf, LEVEL_MAX,
+  levelOf, skillOf, isNodeOpen, nodeStats, scrollSpec, scrollCheck, startScroll, scrollOpen, scrollFlag, scrollTech, quitScroll, nodeOf, LEVEL_MAX, shapeKey,
 } from '../core/dojo.js';
 import { numberAt, areaOf, RULES } from '../core/scroll.js';
 import { GUARD_TREE, TECHS, SKILL } from '../data/dojo.js';
@@ -207,7 +207,8 @@ export function createDojoUI({ get, set, log }) {
     $('dojo-locked').hidden = open;
     $('dojo-body').hidden = !open;
     if (!open) return;
-    const key = JSON.stringify([s.dojo, ui]);
+    // 門下生の残り秒は別の欄で描く（ここに入れると毎刻み描き直してしまう）
+    const key = JSON.stringify([{ ...s.dojo, disciple: null }, ui, s.dojo.disciple?.node ?? null]);
     if (key === lastKey) return;
     lastKey = key;
     $('dojo-body').innerHTML = s.dojo.scroll ? scrollHtml(s) : viewTabs() + (ui.view === 'line' ? lineHtml(s) : treeHtml(s));
@@ -248,6 +249,10 @@ export function createDojoUI({ get, set, log }) {
     if (c.ok) {
       const spec = scrollSpec(n, lv);
       h += `<button type="button" class="go" data-dact="start">巻物を開く<small class="quiet"> ${specText(spec)}</small></button>`;
+      if (s.open.unlocks.includes('disciple')) {
+        const known = (s.dojo.shapes ?? []).includes(shapeKey(spec));
+        h += `<p class="small quiet">${known ? '門下生はこの形を解ける' : 'この形は門下生がまだ解けない（あなたが一度解くと解ける）'}</p>`;
+      }
     } else {
       h += `<p class="quiet small">${c.reason}</p>`;
     }
