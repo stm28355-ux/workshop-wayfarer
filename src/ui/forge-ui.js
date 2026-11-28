@@ -2,9 +2,10 @@
 import {
   isOpen, slotsOf, fuelPower, forgeCheck, forgeStart, forgeStrike, forgeFire, forgeFinish,
   equipItem, setForgeAuto, upgradeCheck, buyUpgrade, widenTo, mergeCrafterTicks, mergeCrafterRank, setCrafterWait,
+  craftable,
 } from '../core/game.js';
 import { planOf, mainValue, heroStats, itemKey, baseOf, statOf, intervalText } from '../core/gear.js';
-import { preview, canStrike, canFire, score, cellQuality, strikeAmount } from '../core/forge.js';
+import { preview, canStrike, canFire, score, cellQuality, strikeAmount, hasTool } from '../core/forge.js';
 import { GEAR, SLOTS, STRIKES, TEMPS, GEAR_KINDS, gearCost, bandOf } from '../data/forge.js';
 import { KINDS, WORKSHOP, TICKS_PER_SEC } from '../data/balance.js';
 import { discipleTicks } from '../core/dojo.js';
@@ -23,6 +24,9 @@ export function statText(stat, v) {
   if (stat === 'guard') return `受けるダメージ−${r1(v)}`;
   if (stat === 'atk') return `攻撃＋${r1(v * 100)}%`;
   if (stat === 'regen') return `歩く間の回復＋${r1(v * 100)}%`;
+  if (stat === 'ward') return `受けるダメージ−${r1(v * 100)}%`;
+  if (stat === 'speed') return `攻撃の速さ＋${r1(v * 100)}%`;
+  if (stat === 'cast') return `札の時間−${r1(v * 100)}%`;
   return String(r1(v));
 }
 
@@ -44,6 +48,14 @@ export function createForgeUI({ get, set, log }) {
       ui.kind = b.dataset.kind;
       const slots = slotsOf(ui.kind);
       ui.slot = slots.length === 1 ? slots[0] : slots.includes(ui.slot) ? ui.slot : null;
+      ui.result = null;
+    } else if (act === 'pick') {
+      // 今打てる物から選ぶ（判定表 第16回 D2）。一番の出来の燃料があればそれを入れる
+      ui.kind = b.dataset.kind;
+      ui.slot = b.dataset.slot;
+      ui.tier = Number(b.dataset.tier);
+      const best = s.forge.best[`${ui.kind}:${ui.slot}:${bandOf(ui.tier).id}`];
+      ui.fuel = best ? { ...best.fuel } : {};
       ui.result = null;
     } else if (act === 'slot') {
       ui.slot = b.dataset.slot;
@@ -154,6 +166,14 @@ export function createForgeUI({ get, set, log }) {
   function setupHtml(s) {
     let h = '';
     if (ui.result) h += `<p class="result${ui.result.crit ? ' crit' : ''}">${craftText(ui.result)}</p>`;
+    // 今打てる物（判定表 第16回 D2）
+    const can = craftable(s);
+    if (can.length) {
+      const modeName = { new: '初めて', up: '格上げ', add: '加算' };
+      h += '<div class="step can-list"><span class="step-name">今打てる物</span>' + can.map((c) =>
+        `<button type="button" class="opt${ui.kind === c.kind && ui.slot === c.slot && ui.tier === c.tier ? ' sel' : ''}" data-act="pick" data-kind="${c.kind}" data-slot="${c.slot}" data-tier="${c.tier}">` +
+        `${gearName(c.kind, c.slot)}<small>格${c.tier}・${modeName[c.mode] ?? ''}</small></button>`).join('') + '</div>';
+    }
     if (!ui.kind) return h + '<p class="quiet">素材を選ぶ（装備作りの出口に入れた物）。</p>';
     const slots = slotsOf(ui.kind);
     h += '<div class="step"><span class="step-name">作る物</span>' + slots.map((sl) => {
@@ -171,7 +191,7 @@ export function createForgeUI({ get, set, log }) {
       h += `<button type="button" class="opt${ui.tier === t ? ' sel' : ''}" data-act="tier" data-tier="${t}" ${p.mode === 'full' ? 'disabled' : ''}>` +
         `格${t}<small>${what}</small><small class="num">${KINDS[ui.kind].name} ${gearCost(t)}・${gain}</small></button>`;
     }
-    h += `<span class="quiet small">格${GEAR.tierMax + 1}からは次の工程</span></div>`;
+    h += `<span class="quiet small">格${GEAR.tierMax + 1}からは次の工程（格3・4 は 3×3 の9マス）</span></div>`;
     // 燃料
     const band = bandOf(ui.tier);
     const pow = fuelPower(ui.fuel);
@@ -189,6 +209,7 @@ export function createForgeUI({ get, set, log }) {
     const bestKey = `${ui.kind}:${ui.slot}:${band.id}`;
     const best = s.forge.best[bestKey];
     h += `<p class="num">集中力 <b>${pow.conc}</b>／${band.cap}　火を足す <b>${pow.fire}</b>回</p>`;
+    h += '<p class="small quiet">燃料に入れた欠片で叩き方が増える：氷＝細打ち（＋1）・石＝均し（−1）・風＝横薙ぎ（横1列）・雷＝十字打ち（十字5マス）・炎＝火を足す。</p>';
     if (best) h += `<p class="small">一番の出来 ${best.sum}/${best.max}${best.crit ? '（会心）' : ''}　<button type="button" class="mini wide" data-act="fuel-best" data-key="${bestKey}">その時の燃料にする</button></p>`;
     h += '</div>';
     const c = forgeCheck(s, { kind: ui.kind, slot: ui.slot, tier: ui.tier, fuel: ui.fuel });
@@ -217,10 +238,12 @@ export function createForgeUI({ get, set, log }) {
     const bests = se.values.filter((v, i) => cellQuality(v, se.targets[i]).q === 2).length;
     h += `<p class="num">集中力 <b>${se.conc}</b>　火 <b>${se.fire}</b>回　◎ <b>${bests}</b>/${se.values.length}マス（全部◎で会心＝基本の${Math.round(GEAR.crit * 100)}%）<br>今の出来 ${sc.sum}/${sc.max}・基本の${Math.round(sc.ratio * 100)}%</p>`;
     // 叩き方
-    h += '<div class="strikes">' + Object.entries(STRIKES).map(([id, st]) => {
+    const SHAPE = { one: '1マス', vertical: '縦2マス', cross: '十字', row: '横1列' };
+    const sign = (v) => (v < 0 ? `−${-v}` : `＋${v}`);
+    h += '<div class="strikes">' + Object.entries(STRIKES).filter(([id]) => hasTool(se, id)).map(([id, st]) => {
       const ok = canStrike(se, id);
       return `<button type="button" class="opt${ui.strike === id ? ' sel' : ''}" data-act="strike" data-strike="${id}" ${ok ? '' : 'disabled'}>` +
-        `${st.name}<small>${st.shape === 'one' ? '1マス' : '縦2マス'} ＋${strikeAmount(se, id)}・集中${st.cost}</small></button>`;
+        `${st.name}<small>${SHAPE[st.shape]} ${sign(strikeAmount(se, id))}・集中${st.cost}</small></button>`;
     }).join('') + `<button type="button" class="opt" data-act="fire" ${canFire(se) ? '' : 'disabled'}>火を足す<small>1段熱くして段を最初から</small></button></div>`;
     // 盤（叩く前の伸びを見せる）
     const pv = ui.aim !== null && canStrike(se, ui.strike) ? preview(se, ui.strike, ui.aim) : [];
@@ -232,8 +255,9 @@ export function createForgeUI({ get, set, log }) {
       const mark = q.crack ? 'ひび' : q.q === 2 ? '◎' : q.q === 1 ? '○' : '';
       let next = '';
       if (g) {
-        const nq = cellQuality(v + g, c);
-        next = `<span class="gain${nq.crack ? ' bad' : nq.q === 2 ? ' good' : ''}">＋${g}→${v + g}</span>`;
+        const nq = cellQuality(Math.max(0, v + g), c);
+        const nv = Math.max(0, v + g);
+        next = `<span class="gain${nq.crack ? ' bad' : nq.q === 2 ? ' good' : ''}">${g < 0 ? '−' : '＋'}${Math.abs(g)}→${nv}</span>`;
       }
       return `<button type="button" class="anv${g ? ' aim' : ''}${q.crack ? ' crack' : q.q === 2 ? ' best' : q.q === 1 ? ' ok' : ''}" data-act="hit" data-cell="${i}" aria-label="マス${i + 1}：今${v}、目標${c}（${c - 1}〜${c + 1}）">` +
         `<b class="num">${v}</b><small class="num">目標 ${c}（${c - 1}〜${c + 1}）</small><span class="mark">${mark}</span>${next}</button>`;

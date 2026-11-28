@@ -2,7 +2,7 @@
 // 持ち物は「種類×部類」ごとに1つ（判定表 第4回 A6）。装備は武器と防具が1つずつ、アクセサリーは持っている物が全部効く。
 // 物は { kind, slot, tier, q, adds: { 格: 回数 }, extra }。主の数値＝ 格の基本 × q ＋ extra。
 
-import { GEAR, GEAR_KINDS, GEAR_BASE } from '../data/forge.js';
+import { GEAR, GEAR_KINDS, GEAR_BASE, STAT_CAPS } from '../data/forge.js';
 import { HERO, LEVEL } from '../data/balance.js';
 import { nodeStats } from './dojo.js';
 
@@ -73,30 +73,45 @@ export function heroStats(state) {
   }
   let hpAdd = 0;
   let guard = 0;
+  let wardPct = 0;
   const a = items[equip.armor];
   if (a) {
-    if (statOf(a.kind, a.slot) === 'hp') hpAdd = mainValue(a);
+    const st = statOf(a.kind, a.slot);
+    if (st === 'hp') hpAdd = mainValue(a);
+    else if (st === 'ward') wardPct += mainValue(a); // 衣：受けるダメージ −%（判定表 第16回 C3）
     else guard = mainValue(a) * m;
   }
   let atkPct = 0;
   let regenPct = 0;
+  let speedPct = 0;
+  let castPct = 0;
   for (const it of Object.values(items)) {
     if (it.slot !== 'accessory') continue;
     const st = statOf(it.kind, it.slot);
     if (st === 'atk') atkPct += mainValue(it);
     else if (st === 'regen') regenPct += mainValue(it);
+    else if (st === 'ward') wardPct += mainValue(it);
+    else if (st === 'speed') speedPct += mainValue(it);
+    else if (st === 'cast') castPct += mainValue(it);
   }
-  // 道場の小さい節（判定表 第6回 D2）
+  // 道場の小さい節（判定表 第6回 D2）。割合には上限（第16回 C5）
   const tree = nodeStats(state);
+  const speed = Math.min(STAT_CAPS.speed, tree.speed + speedPct);
+  const ward = Math.min(STAT_CAPS.ward, tree.taken + wardPct);
+  const cast = Math.min(STAT_CAPS.cast, castPct);
   return {
     atk: (HERO.baseAtk + atkAdd) * m * (1 + atkPct + tree.atk),
     maxHp: (HERO.baseHp + hpAdd) * m * (1 + tree.hp),
-    attackTicks: attackTicks / (1 + tree.speed),
+    attackTicks: attackTicks / (1 + speed),
     guard,
-    taken: Math.max(0.1, 1 - tree.taken),
+    taken: 1 - ward,
     regen: HERO.regen * m * (1 + regenPct + tree.regen),
+    cast: 1 - cast, // 札の時間の倍率（雷の耳飾り）
     atkPct,
     regenPct,
+    wardPct,
+    speedPct,
+    castPct,
     tree,
   };
 }

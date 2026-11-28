@@ -507,6 +507,44 @@ export function fuelPower(fuel) {
   return { conc, fire: Math.floor((fuel?.fire ?? 0) / FIRE_PER) };
 }
 
+// 今打てる物（判定表 第16回 D1・D2）：素材が足り、燃料にできる欠片が CRAFT_MIN_FUEL 以上あるとき。
+// 持っている物は格上げ（できれば）か、加算の残る一番上の格。持っていない物は格1を初めて。
+export const CRAFT_MIN_FUEL = 8;
+export function craftable(state) {
+  if (!isOpen(state, 'stage:forge') || state.forge.session) return [];
+  const out = [];
+  for (const [kind, def] of Object.entries(GEAR_KINDS)) {
+    for (const slot of Object.keys(SLOTS)) {
+      if (!def[slot]) continue;
+      const item = state.gear.items[`${kind}:${slot}`];
+      const tiers = [];
+      if (!item) tiers.push(1);
+      else {
+        if (item.tier < GEAR.tierMax) tiers.push(item.tier + 1);
+        for (let t = item.tier; t >= 1; t--) if ((item.adds[t] ?? 0) < GEAR.addCap) { tiers.push(t); break; }
+      }
+      for (const tier of tiers) {
+        const cost = gearCost(tier);
+        if ((state.stock.forge[kind] ?? 0) < cost) continue;
+        let fuel = 0;
+        for (const [k, v] of Object.entries(state.stock.forge)) {
+          if (KINDS[k]?.group !== 'shard') continue;
+          fuel += k === kind ? Math.max(0, v - cost) : v;
+        }
+        if (fuel < CRAFT_MIN_FUEL) continue;
+        out.push({ kind, slot, tier, mode: planOf(state.gear.items, kind, slot, tier).mode });
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+// 燃料に入っている欠片の種類（燃料で使える叩き方。判定表 第16回 B1）。
+export function fuelTools(fuel) {
+  return Object.entries(fuel ?? {}).filter(([k, v]) => v > 0 && KINDS[k]?.group === 'shard').map(([k]) => k).sort();
+}
+
 // 打つ前の見通し。ok でなければ reason に理由。
 export function forgeCheck(state, { kind, slot, tier, fuel }) {
   if (!isOpen(state, 'stage:forge')) return { ok: false, reason: '打ち分けは地域1のボスを倒すと開く' };
@@ -535,7 +573,7 @@ export function forgeStart(state, args) {
   for (const [k, v] of Object.entries(c.need)) s.stock.forge[k] -= v;
   const fuel = {};
   for (const [k, v] of Object.entries(args.fuel)) if (v > 0) fuel[k] = v;
-  s.forge.session = forge.newSession({ kind: args.kind, slot: args.slot, tier: args.tier, conc: c.conc, fire: c.fire });
+  s.forge.session = forge.newSession({ kind: args.kind, slot: args.slot, tier: args.tier, conc: c.conc, fire: c.fire, tools: fuelTools(fuel) });
   s.forge.fuel = fuel;
   return { state: s, ok: true };
 }
@@ -604,7 +642,7 @@ function autoCraft(s) {
       if (!best) continue;
       const c = forgeCheck(s, { kind: item.kind, slot: item.slot, tier, fuel: best.fuel });
       if (!c.ok) continue;
-      const start = forge.newSession({ kind: item.kind, slot: item.slot, tier, conc: c.conc, fire: c.fire });
+      const start = forge.newSession({ kind: item.kind, slot: item.slot, tier, conc: c.conc, fire: c.fire, tools: fuelTools(best.fuel) });
       const end = forge.replay(start, best.log);
       if (!end) continue;
       for (const [k, v] of Object.entries(c.need)) s.stock.forge[k] -= v;

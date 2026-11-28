@@ -105,10 +105,12 @@ function bestLog(kind, slot, tier, conc, fire) {
 }
 const GEAR_PLAN = [['iron', 'weapon'], ['copper', 'armor'], ['copper', 'weapon'], ['fire', 'accessory'], ['stone', 'accessory']];
 let gearNext = 0;
+// ボットは格2まで（格3・4 の9マスは解く道具が遅いので打たない。工程7b）
+const BOT_TIER_MAX = 2;
 function nextTier(s, kind, slot) {
   const it = s.gear.items[`${kind}:${slot}`];
   if (!it) return 1;
-  if (it.tier < GEAR.tierMax) return it.tier + 1;
+  if (it.tier < Math.min(GEAR.tierMax, BOT_TIER_MAX)) return it.tier + 1;
   for (let t = it.tier; t >= 1; t--) if ((it.adds?.[t] ?? 0) < GEAR.addCap) return t;
   return null;
 }

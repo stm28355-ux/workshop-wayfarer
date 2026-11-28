@@ -427,3 +427,6 @@ dialog li { margin-bottom: 6px; }
 .slot.k-stack, .tl.k-stack { border-color: #6fd1c4; }
 .card.k-stack { border-left: 3px solid #6fd1c4; }
 .quit-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* 打てる印（判定表 第16回 D1） */
+.mid-go.can, #tab-2.can { border-color: var(--good); color: var(--good); }
+.can-list .opt { border-color: color-mix(in srgb, var(--good) 50%, var(--line)); }

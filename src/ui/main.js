@@ -1,6 +1,6 @@
 // 試作画面（工程3）：冒険・マージの盤・打ち分け・工房。ルールは src/core の関数を呼ぶだけ。
 import { APP_VERSION } from '../version.js';
-import { createGame, advance, feed, moveItem, chooseRegion, region, isOpen, restartRun } from '../core/game.js';
+import { createGame, advance, feed, moveItem, chooseRegion, region, isOpen, restartRun, craftable } from '../core/game.js';
 import { xpToNext } from '../core/hero.js';
 import { heroStats, damageTaken, intervalText } from '../core/gear.js';
 import { rankValue } from '../core/rank.js';
@@ -23,7 +23,8 @@ const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
 // ?test=r3 は地域2のボスを倒した直後の、予定表どおりの状態（判定表 第11回 D4。src/core/plan.js）。
 // ?test=auto は門下生と振り分けが来ている状態（第11回 D5）。
 // ?test=sword は地域2のボスの後で、剣の節が全部 1/5（札が全部使える）、連撃・十字斬り・範囲化が 3/5（枠6）。坑道から出発。
-const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto', 'sword'].includes(params.get('test')) ? params.get('test') : null;
+// ?test=forge3 は地域3のボスの後（打ち分けの職人が来ている）、銅・鉄・魔銀と欠片がたまっていて、格3・4 と燃料の叩き方を試せる（判定表 第16回 E2）。
+const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto', 'sword', 'forge3'].includes(params.get('test')) ? params.get('test') : null;
 const SLOT = TEST ? `test-${TEST}` : undefined;
 const TICK_MS = 1000 / TICKS_PER_SEC;
 const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
@@ -45,6 +46,7 @@ if (loaded) {
 function testState(mode) {
   if (mode === 'r3') return planAfterRegion2();
   if (mode === 'auto') return autoState();
+  if (mode === 'forge3') return forge3State();
   const s = createGame();
   const upto = { open: 1, dojo: 2, line: 2, all: 3, sword: 2 }[mode];
   for (let id = 1; id <= upto; id++) {
@@ -72,6 +74,22 @@ function testState(mode) {
     for (const id of ['tateuchi', 'tame', 'mikiri']) s.dojo.nodes[id] = { skill: 6 };
     s.hero.level = 10;
   }
+  s.run.hp = heroStats(s).maxHp;
+  return s;
+}
+
+// 格3・4 を試す状態：予定表の地域3の入口から、地域3のボスまで開けて素材を足した物。
+function forge3State() {
+  const s = planAfterRegion2();
+  s.cleared.push(3);
+  for (const key of region(3).unlocks) {
+    const [what, arg] = key.split(':');
+    if (what === 'region') { if (!s.open.regions.includes(Number(arg))) s.open.regions.push(Number(arg)); }
+    else if (!s.open.unlocks.includes(key)) s.open.unlocks.push(key);
+  }
+  s.hero.level = 11;
+  s.stock.forge = { iron: 400, copper: 1000, mithril: 600, fire: 80, stone: 80, ice: 150, wind: 150, thunder: 120 };
+  s.stock.workshop = 100;
   s.run.hp = heroStats(s).maxHp;
   return s;
 }
@@ -384,7 +402,10 @@ function exitSub(exit) {
   if (!s.open.exits.includes(exit)) return '地域1のボスで開く';
   if (exit === 'prep') return `残り ${secs(s.run.prep / region(s.run.region).drain)}`;
   if (exit === 'grow') return `Lv${s.hero.level}　あと ${xpToNext(s.hero.level) - s.hero.xp}`;
-  if (exit === 'forge') return `たまった ${Object.values(s.stock.forge).reduce((a, b) => a + b, 0)}`;
+  if (exit === 'forge') {
+    const n = craftable(s).length;
+    return `たまった ${Object.values(s.stock.forge).reduce((a, b) => a + b, 0)}${n ? `・打てる${n}` : ''}`;
+  }
   return `たまった ${s.stock.workshop}`;
 }
 function exitGain(exit, item) {
@@ -570,6 +591,15 @@ function renderTabs() {
   if (st.dataset.mid !== m) st.dataset.mid = m;
   for (const b of document.querySelectorAll('#stage-tabs [data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === t));
   document.querySelector('.forge-side .mid-go').hidden = !dojoOpen;
+  // 打てる物の数（判定表 第16回 D1）
+  const n = forgeOpen ? craftable(state).length : 0;
+  const label = n ? `段2 打ち分け（打てる${n}）` : '段2 打ち分け';
+  if ($('tab-2').textContent !== label) $('tab-2').textContent = label;
+  const go = document.querySelector('.dojo-side .mid-go');
+  const goLabel = n ? `段2 打ち分けへ（打てる${n}）` : '段2 打ち分けへ';
+  if (go.textContent !== goLabel) go.textContent = goLabel;
+  go.classList.toggle('can', n > 0);
+  $('tab-2').classList.toggle('can', n > 0);
 }
 $('stage-tabs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tab]');

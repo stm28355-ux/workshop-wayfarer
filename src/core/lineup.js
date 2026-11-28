@@ -178,7 +178,7 @@ export function heroAct(ctx) {
         }
       }
       // 時間の端数は捨てずに次へ持ち越す（攻撃の速さの小さい伸びも効くように）
-      f.heroCd += Math.max(1, time * hero.attackTicks);
+      f.heroCd += Math.max(1, time * hero.attackTicks * (hero.cast ?? 1)); // 札の時間は雷の耳飾りで縮む（判定表 第16回 C4）
       if (line.pos >= cards.length) {
         // 最後の札が終わってから積み直し
         line.pos = 0;

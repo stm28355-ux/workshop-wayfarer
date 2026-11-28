@@ -59,7 +59,7 @@ test('打つ前の確かめ：開いているか、素材と燃料、集中力�
   const t = opened();
   assert.equal(forgeCheck(t, { kind: 'iron', slot: 'weapon', tier: 1, fuel: {} }).ok, false, '燃料が要る');
   assert.match(forgeCheck(t, { kind: 'iron', slot: 'weapon', tier: 1, fuel: { fire: 17 } }).reason, /集中力は16まで/);
-  assert.match(forgeCheck(t, { kind: 'iron', slot: 'weapon', tier: 3, fuel: { fire: 6 } }).reason, /格3からは次の工程/);
+  assert.match(forgeCheck(t, { kind: 'iron', slot: 'weapon', tier: 5, fuel: { fire: 6 } }).reason, /格5からは次の工程/);
   assert.equal(forgeCheck(t, { kind: 'iron', slot: 'accessory', tier: 1, fuel: { fire: 6 } }).ok, false, '鉱石からアクセサリーは作れない');
   const ok = forgeCheck(t, { kind: 'fire', slot: 'accessory', tier: 1, fuel: { fire: 6, stone: 8 } });
   assert.ok(ok.ok);
