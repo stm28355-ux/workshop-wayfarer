@@ -431,6 +431,30 @@ dialog li { margin-bottom: 6px; }
 .mid-go.can, #tab-2.can { border-color: var(--good); color: var(--good); }
 .can-list .opt { border-color: color-mix(in srgb, var(--good) 50%, var(--line)); }
 
+/* 召喚の巻物（部屋分け）・隠密の巻物（灯り）工程7d */
+.rooms-wrap { position: relative; width: min(100%, calc(var(--w) * 52px)); aspect-ratio: var(--w) / var(--h); margin: 6px 0; }
+.rooms { display: grid; grid-template-columns: repeat(var(--w), 1fr); width: 100%; height: 100%; border: 2px solid var(--ink); user-select: none; -webkit-user-select: none; touch-action: none; }
+.rc { position: relative; border: 1px dashed #3a414c; background: #2a2f37; color: var(--ink); padding: 0; cursor: pointer; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.rc .clue { font-size: 1.15rem; }
+.rc .clue.e0, .rc small.e0 { color: #e2623f; } .rc .clue.e1, .rc small.e1 { color: #4a8fe0; } .rc .clue.e2, .rc small.e2 { color: #7fc8e8; } .rc .clue.e3, .rc small.e3 { color: #e8c84a; }
+.rc small { font-size: 0.6rem; line-height: 1; }
+.rc.sel { background: rgb(242 199 110 / 0.35); }
+.rc.placed.tint0 { background: #33402f; } .rc.placed.tint1 { background: #2f3a47; } .rc.placed.tint2 { background: #45363a; }
+.rc.placed.tint3 { background: #3d3a2c; } .rc.placed.tint4 { background: #36304a; } .rc.placed.tint5 { background: #2c4242; }
+.rc .hint { position: absolute; left: 2px; bottom: 1px; font-style: normal; font-size: 0.6rem; color: var(--accent); font-weight: 600; }
+.rooms-over { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); pointer-events: none; }
+.rooms-over rect { fill: none; stroke: var(--ink); stroke-width: 0.06; }
+.rooms-over rect.bad { stroke: var(--bad); }
+.lamps { display: grid; grid-template-columns: repeat(var(--w), minmax(0, 52px)); gap: 3px; width: fit-content; max-width: 100%; margin: 6px 0; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.lc { position: relative; aspect-ratio: 1; min-height: 34px; border-radius: 6px; border: 1px solid var(--line); background: #22262d; color: var(--ink); font-weight: 700; font-size: 1.05rem; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
+.lc.wall { background: #0f1114; border-color: #0f1114; color: #f2f2f2; cursor: default; }
+.lc.lit { background: rgb(242 199 110 / 0.22); }
+.lc.lamp { background: #f2c76e; color: #14171c; }
+.lc.x { color: var(--quiet); }
+.lc.sure { color: var(--ink); background: #1a1e24; }
+.lc.wrong { border-color: var(--bad); }
+.lc .hint { position: absolute; left: 2px; bottom: 1px; font-style: normal; font-size: 0.6rem; color: var(--accent); font-weight: 600; }
+
 /* 魔法の巻物（属性の数独）・弓の巻物（鏡）判定表 第18回 */
 .e0 { --ec: #e2623f; } .e1 { --ec: #4a8fe0; } .e2 { --ec: #7fc8e8; } .e3 { --ec: #e8c84a; } .e4 { --ec: #8fd18f; } .e5 { --ec: #a68d70; }
 .elems { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }

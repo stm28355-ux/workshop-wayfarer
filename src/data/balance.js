@@ -85,9 +85,12 @@ export const REGIONS = Object.freeze([
     unlocks: ['region:5', 'disciple', 'school:summon', 'school:stealth'],
   },
   {
-    id: 5, name: '沼地', wall: '回復する敵', gap: 30, drain: 11, bossAt: 2700,
-    enemy: { name: '沼の影', hp: 2000, hpStep: 70, atk: 40, atkEvery: 8, hits: 1, traits: { regenPct: 0.03 } },
-    boss: { name: '沼の主', hp: 150000, atk: 120, hits: 1, traits: { regenPct: 0.01 } },
+    // 工程7d：tools/r4-sim.mjs（REGION=5）で予定表の勇者（地域4を出るとき・地域5を出るとき）を戦わせて決めた。
+    // 回復する敵は普通の攻撃だけだと回復に追いつかない。毒（隠密）で回復を止めるか、短い時間に注ぐ並びが要る。
+    // 支度の減りは落とし物に合わせて地域4（3）の2倍。
+    id: 5, name: '沼地', wall: '回復する敵', gap: 30, drain: 6, bossAt: 2700,
+    enemy: { name: '沼の影', hp: 400, hpStep: 4, atk: 26, atkEvery: 30, hits: 1, traits: { regenPct: 0.04 } },
+    boss: { name: '沼の主', hp: 16000, atk: 24, hits: 1, traits: { regenPct: 0.01 } },
     drops: [{ kind: 'mithril', rank: 3 }, { kind: 'dragon', rank: 2 }, { kind: 'thunder', rank: 3 }, { kind: 'dragon', rank: 3 }],
     unlocks: ['region:6', 'split'],
   },

@@ -12,8 +12,8 @@ export const GEAR = Object.freeze({
   // 出来：出来の合計 ÷ 満点 で基本の minQ〜1、会心（全部◎）は crit。
   minQ: 0.5,
   crit: 1.2,
-  // 今の工程で打てる格の上限（判定表 第16回 A1：格3・4 は 3×3 の9マス。格5・6 は工程7d）。
-  tierMax: 4,
+  // 打てる格の上限（判定表 第16回 A1：格3・4 は 3×3 の9マス。格5・6 は 4×3 の12マス、工程7d）。
+  tierMax: 6,
 });
 
 export function gearCost(tier) {
@@ -51,6 +51,7 @@ export const FIRE_PER = 3;
 export const BANDS = Object.freeze([
   { id: 1, tiers: [1, 2], w: 2, h: 3, cap: 16 },
   { id: 2, tiers: [3, 4], w: 3, h: 3, cap: 24 },
+  { id: 3, tiers: [5, 6], w: 4, h: 3, cap: 32 },
 ]);
 
 export function bandOf(tier) {
@@ -60,6 +61,7 @@ export function bandOf(tier) {
 // 素材ごとの装備。perLevel は1段の温度で叩ける回数（鉄は3回、銅は冷めにくく4回）。
 // targets は盤ごとの各マスの目標の真ん中（帯は ±1）。左上から読む順。
 // 盤2（3×3）と新しい装備は tools/forge-beam.mjs で「欠片だけ・火1回では会心に届かず、燃料の叩き方の組のどれかで届く」ように選んだ（判定表 第16回 A2）。
+// 盤3（4×3）と竜の鱗・星鉄は tools/forge-targets.mjs で同じ決まりで探した（工程7d。docs/measure/phase7d.md）。
 // 盤1（2×3）の鉄・銅・炎・石は tools/forge-solve.mjs で会心に届くかを確かめた：
 // 鉄と炎・石は「集中力14＋火1回か、集中力16」で会心（炎の腕輪は12＋火1回）。銅は冷めにくく、火は要らないが集中力16が要る。
 // weapon：atk＝攻撃の倍率（鉄の剣を1）、ticks＝攻撃の間（刻み）、recast＝積み直しの秒（技の並びから効く）。
@@ -69,39 +71,53 @@ export function bandOf(tier) {
 export const GEAR_KINDS = Object.freeze({
   iron: {
     perLevel: 3,
-    weapon: { name: '鉄の剣', atk: 1.0, ticks: 10, recast: 3, targets: { 1: [7, 9, 8, 6, 5, 4], 2: [7, 8, 7, 8, 3, 5, 3, 6, 4] } },
-    armor: { name: '鉄の鎧', stat: 'hp', targets: { 1: [6, 9, 8, 7, 5, 4], 2: [7, 6, 3, 3, 3, 3, 7, 5, 3] } },
+    weapon: { name: '鉄の剣', atk: 1.0, ticks: 10, recast: 3, targets: { 1: [7, 9, 8, 6, 5, 4], 2: [7, 8, 7, 8, 3, 5, 3, 6, 4], 3: [7, 5, 5, 7, 3, 9, 6, 6, 7, 3, 3, 8] } },
+    armor: { name: '鉄の鎧', stat: 'hp', targets: { 1: [6, 9, 8, 7, 5, 4], 2: [7, 6, 3, 3, 3, 3, 7, 5, 3], 3: [4, 3, 3, 4, 7, 5, 6, 3, 7, 3, 6, 6] } },
   },
   copper: {
     perLevel: 4,
-    weapon: { name: '銅の槌', atk: 1.5, ticks: 14, recast: 4, targets: { 1: [9, 7, 8, 10, 5, 5], 2: [8, 8, 5, 5, 6, 6, 8, 7, 5] } },
-    armor: { name: '銅の盾', stat: 'guard', targets: { 1: [8, 9, 9, 8, 6, 5], 2: [6, 3, 5, 7, 3, 3, 7, 6, 5] } },
+    weapon: { name: '銅の槌', atk: 1.5, ticks: 14, recast: 4, targets: { 1: [9, 7, 8, 10, 5, 5], 2: [8, 8, 5, 5, 6, 6, 8, 7, 5], 3: [3, 4, 6, 4, 6, 8, 5, 9, 3, 3, 6, 7] } },
+    armor: { name: '銅の盾', stat: 'guard', targets: { 1: [8, 9, 9, 8, 6, 5], 2: [6, 3, 5, 7, 3, 3, 7, 6, 5], 3: [7, 8, 8, 6, 6, 9, 5, 6, 4, 5, 6, 6] } },
   },
   mithril: {
     perLevel: 3,
     quirk: 'decay',
-    weapon: { name: '魔銀の杖', atk: 1.2, ticks: 12, recast: 2, targets: { 1: [9, 5, 5, 4, 8, 5], 2: [4, 3, 5, 5, 6, 5, 3, 3, 5] } },
-    armor: { name: '魔銀の衣', stat: 'ward', targets: { 1: [9, 4, 7, 9, 5, 8], 2: [4, 6, 5, 7, 3, 3, 4, 4, 5] } },
+    weapon: { name: '魔銀の杖', atk: 1.2, ticks: 12, recast: 2, targets: { 1: [9, 5, 5, 4, 8, 5], 2: [4, 3, 5, 5, 6, 5, 3, 3, 5], 3: [2, 4, 3, 5, 3, 2, 4, 5, 2, 2, 2, 2] } },
+    armor: { name: '魔銀の衣', stat: 'ward', targets: { 1: [9, 4, 7, 9, 5, 8], 2: [4, 6, 5, 7, 3, 3, 4, 4, 5], 3: [2, 2, 4, 2, 4, 5, 4, 2, 2, 4, 4, 3] } },
   },
   fire: {
     perLevel: 3,
-    accessory: { name: '炎の腕輪', stat: 'atk', targets: { 1: [5, 7, 6, 4, 3, 5], 2: [7, 5, 7, 6, 7, 7, 8, 5, 3] } },
+    accessory: { name: '炎の腕輪', stat: 'atk', targets: { 1: [5, 7, 6, 4, 3, 5], 2: [7, 5, 7, 6, 7, 7, 8, 5, 3], 3: [4, 4, 6, 3, 4, 4, 8, 3, 8, 8, 3, 4] } },
   },
   stone: {
     perLevel: 3,
-    accessory: { name: '石の護符', stat: 'regen', targets: { 1: [6, 7, 7, 6, 5, 5], 2: [5, 4, 7, 8, 6, 8, 5, 3, 7] } },
+    accessory: { name: '石の護符', stat: 'regen', targets: { 1: [6, 7, 7, 6, 5, 5], 2: [5, 4, 7, 8, 6, 8, 5, 3, 7], 3: [7, 5, 4, 3, 3, 9, 6, 3, 6, 5, 7, 3] } },
   },
   ice: {
     perLevel: 3,
-    accessory: { name: '氷の首飾り', stat: 'ward', targets: { 1: [7, 6, 4, 9, 7, 8], 2: [7, 5, 6, 4, 8, 5, 8, 6, 5] } },
+    accessory: { name: '氷の首飾り', stat: 'ward', targets: { 1: [7, 6, 4, 9, 7, 8], 2: [7, 5, 6, 4, 8, 5, 8, 6, 5], 3: [3, 8, 8, 3, 5, 3, 4, 8, 6, 3, 3, 3] } },
   },
   wind: {
     perLevel: 3,
-    accessory: { name: '風の羽', stat: 'speed', targets: { 1: [8, 8, 8, 7, 6, 7], 2: [7, 7, 4, 5, 3, 6, 3, 5, 5] } },
+    accessory: { name: '風の羽', stat: 'speed', targets: { 1: [8, 8, 8, 7, 6, 7], 2: [7, 7, 4, 5, 3, 6, 3, 5, 5], 3: [5, 5, 6, 4, 4, 4, 4, 5, 4, 4, 8, 7] } },
+  },
+  // 竜の鱗（工程7d）：灼熱が長い（5回）が、強打が使えない。武器は双剣（速い）。
+  dragon: {
+    perLevel: 3,
+    quirk: 'longheat',
+    weapon: { name: '竜の双剣', atk: 0.7, ticks: 6, recast: 2, targets: { 1: [7, 7, 8, 6, 9, 8], 2: [8, 8, 3, 3, 8, 4, 8, 6, 8], 3: [6, 6, 3, 8, 8, 4, 4, 5, 9, 5, 4, 7] } },
+    armor: { name: '竜鱗の鎧', stat: 'hp', targets: { 1: [5, 3, 7, 3, 5, 6], 2: [4, 6, 7, 9, 6, 3, 9, 6, 6], 3: [7, 5, 3, 4, 6, 8, 8, 3, 3, 7, 9, 8] } },
+  },
+  // 星鉄（工程7d）：目標が隠れていて、叩いたマスだけ見える。武器は大剣（遅く重い）。
+  star: {
+    perLevel: 3,
+    quirk: 'hidden',
+    weapon: { name: '星鉄の大剣', atk: 2.4, ticks: 18, recast: 5, targets: { 1: [8, 8, 7, 7, 7, 6], 2: [5, 7, 8, 4, 7, 3, 4, 5, 4], 3: [6, 3, 5, 4, 6, 3, 6, 5, 6, 4, 3, 4] } },
+    armor: { name: '星鉄の盾', stat: 'guard', targets: { 1: [7, 7, 3, 7, 7, 4], 2: [4, 3, 8, 7, 4, 8, 8, 5, 4], 3: [6, 3, 4, 8, 8, 8, 6, 5, 6, 3, 5, 6] } },
   },
   thunder: {
     perLevel: 2,
-    accessory: { name: '雷の耳飾り', stat: 'cast', targets: { 1: [5, 7, 5, 6, 6, 7], 2: [6, 4, 4, 3, 4, 2, 6, 3, 4] } },
+    accessory: { name: '雷の耳飾り', stat: 'cast', targets: { 1: [5, 7, 5, 6, 6, 7], 2: [6, 4, 4, 3, 4, 2, 6, 3, 4], 3: [2, 5, 2, 2, 2, 6, 4, 4, 4, 2, 2, 4] } },
   },
 });
 

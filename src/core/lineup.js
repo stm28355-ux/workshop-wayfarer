@@ -69,8 +69,8 @@ export function recastTicks(state) {
 // ctx：{ tick, hero（heroStats）, cards, levels（{札: 段}）, recast（刻み）, line, f（敵）, run（hp を持つ）, events }
 
 // 敵に当てる。盾が残っていれば防がれ、殻があれば引かれる（pierce なら殻を無視）。崩しの間は ＋30%・殻が半分。当たった量を返す。
-export function hitEnemy(f, raw, tick, pierce = false) {
-  if (f.shieldHits > 0) {
+export function hitEnemy(f, raw, tick, pierce = false, noShield = false) {
+  if (f.shieldHits > 0 && !noShield) {
     f.shieldHits -= 1;
     return 0;
   }
@@ -95,6 +95,10 @@ function addBleed(ctx, n) {
 
 export function isFrozen(f, tick) {
   return (f.frozenUntil ?? -1) > tick;
+}
+// 止まっている（凍結か影縫い）。
+export function isHeld(f, tick) {
+  return isFrozen(f, tick) || (f.holdUntil ?? -1) > tick;
 }
 export function isWet(f, tick) {
   return (f.wetUntil ?? -1) > tick;
@@ -147,7 +151,29 @@ function applyTech(ctx, c, p, area = false, extra = {}) {
   const bodies = area || c.area ? f.swarm ?? 1 : 1;
   const em = applyElement(ctx, c, extra.id, p, extra.wet);
   if (c.damage) {
-    for (let b = 0; b < bodies; b++) for (let k = 0; k < (c.hits ?? 1); k++) dealt += hitEnemy(f, hero.atk * c.damage * p * em, tick, !!c.pierce || !!extra.pierce);
+    for (let b = 0; b < bodies; b++) for (let k = 0; k < (c.hits ?? 1); k++) dealt += hitEnemy(f, hero.atk * c.damage * p * em, tick, !!c.pierce || !!extra.pierce, !!extra.unshield);
+  }
+  // 工程7d：召喚獣・受け持ち・毒・止める・暗殺
+  if (c.pet) {
+    if (!line.pets) line.pets = [];
+    const n = extra.pets ?? 1;
+    for (let k = 0; k < n; k++) {
+      line.pets.push({ until: tick + c.pet.sec * TICKS_PER_SEC, every: c.pet.every * TICKS_PER_SEC, cd: 1, // 呼んだらすぐ1回目
+        dmg: hero.atk * c.pet.damage * p, area: !!c.pet.area, elem: c.pet.elem ?? null });
+    }
+    ctx.events.push({ type: 'state', state: 'summon' });
+  }
+  if (c.absorb) line.absorb = (line.absorb ?? 0) + Math.round(c.absorb * p);
+  if (c.poison || extra.poison) {
+    f.poisonUntil = tick + ES.poisonSec * TICKS_PER_SEC;
+    f.poisonPer = Math.max(f.poisonPer ?? 0, hero.atk * ES.poisonPer * p);
+    ctx.events.push({ type: 'state', state: 'poison' });
+  }
+  if (c.holdSec) f.holdUntil = Math.max(f.holdUntil ?? -1, tick + c.holdSec * TICKS_PER_SEC);
+  if (c.execute && f.hp > 0 && f.hp <= (f.maxHp ?? Infinity) * c.execute) {
+    dealt += f.hp;
+    f.hp = 0;
+    ctx.events.push({ type: 'state', state: 'execute' });
   }
   if (c.bleed) dealt += addBleed(ctx, c.bleed);
   if (c.breakSec) f.breakUntil = Math.max(f.breakUntil ?? -1, tick + c.breakSec * TICKS_PER_SEC * p);
@@ -165,6 +191,8 @@ function applyTech(ctx, c, p, area = false, extra = {}) {
 function condHolds(ctx, c) {
   if (c.cond === 'opening') return ctx.tick - (ctx.f.start ?? 0) < STATES.iaiSec * TICKS_PER_SEC;
   if (c.cond === 'frozen') return isFrozen(ctx.f, ctx.tick);
+  if (c.cond === 'held') return isHeld(ctx.f, ctx.tick);
+  if (c.cond === 'summoned') return (ctx.line.pets ?? []).some((pt) => pt.until > ctx.tick);
   if (c.cond === 'marked') return (ctx.f.markUntil ?? -1) > ctx.tick;
   return ctx.run.hp <= ctx.hero.maxHp / 2;
 }
@@ -189,7 +217,7 @@ function useCard(ctx, id) {
     return { time: 0, dealt: 0, skip: false }; // 時間を使わず、続けて次の札へ（条件が合ったのと同じ）
   }
   if (c.type === 'mod') {
-    line.mods.push({ mult: c.mult ?? 1, timeMult: c.timeMult ?? 1, area: !!c.area, repeat: c.repeat ?? 1, wet: !!c.wet, pierce: !!c.pierce });
+    line.mods.push({ mult: c.mult ?? 1, timeMult: c.timeMult ?? 1, area: !!c.area, repeat: c.repeat ?? 1, wet: !!c.wet, pierce: !!c.pierce, pets: c.pets ?? 1, poison: !!c.poison, unshield: !!c.unshield });
     events.push({ type: 'card', id });
     return { time: c.swings, dealt: 0 };
   }
@@ -197,7 +225,10 @@ function useCard(ctx, id) {
   const tm = line.mods.reduce((a, m) => a * m.timeMult, 1);
   const area = line.mods.some((m) => m.area);
   const repeat = line.mods.reduce((a, m) => a * m.repeat, 1);
-  const extra = { id, wet: line.mods.some((m) => m.wet), pierce: line.mods.some((m) => m.pierce) };
+  const extra = {
+    id, wet: line.mods.some((m) => m.wet), pierce: line.mods.some((m) => m.pierce),
+    pets: line.mods.reduce((a, m) => a * (m.pets ?? 1), 1), poison: line.mods.some((m) => m.poison), unshield: line.mods.some((m) => m.unshield),
+  };
   events.push({ type: 'card', id, mods: line.mods.length });
   line.mods = [];
   let dealt = 0;
@@ -273,8 +304,15 @@ export function heroAct(ctx) {
 // 敵の番（enemyCd が 0 になったとき）。勇者が受けた量を返す（反撃で敵に当てた量は dealt に足す）。
 export function enemyAct(ctx) {
   const { hero, line, f, run, events, tick } = ctx;
-  // 凍っている間は動かない（解けたらすぐ動く）
-  if (isFrozen(f, tick)) { f.enemyCd = 1; return 0; }
+  // 凍っている・影縫いの間は動かない（解けたらすぐ動く）
+  if (isHeld(f, tick)) { f.enemyCd = 1; return 0; }
+  // 岩の守り手が受け持つ
+  if (line.absorb > 0) {
+    line.absorb -= 1;
+    f.enemyCd = f.enemyTicks;
+    events.push({ type: 'guard' });
+    return 0;
+  }
   f.enemyCd = f.enemyTicks;
   if (tick < line.focusUntil) {
     ctx.dealt = (ctx.dealt ?? 0) + hitEnemy(f, hero.atk * line.counter, tick);
@@ -319,8 +357,28 @@ export function tickFight(ctx) {
       if (f.burn.left <= 0) { f.burn = null; f.burnSpread = false; }
     }
   }
-  if (f.regen) f.hp = Math.min(f.maxHp, f.hp + f.regen);
-  if (f.shieldMax && !isFrozen(f, ctx.tick)) {
+  // 毒：毎秒（刻みに割って）削り、毒の間は回復しない
+  const poisoned = (f.poisonUntil ?? -1) > ctx.tick;
+  if (poisoned && hero) {
+    const d = f.poisonPer / TICKS_PER_SEC;
+    f.hp -= d;
+    dealt += d;
+  }
+  // 召喚獣
+  if (line.pets?.length) {
+    for (const pt of line.pets) {
+      if (pt.until <= ctx.tick) continue;
+      pt.cd -= 1;
+      if (pt.cd > 0) continue;
+      pt.cd = pt.every;
+      const bodies = pt.area ? f.swarm ?? 1 : 1;
+      for (let b = 0; b < bodies; b++) dealt += hitEnemy(f, pt.dmg, ctx.tick);
+      if (pt.elem === 'fire' && !isWet(f, ctx.tick)) f.burn = { left: ES.burnTimes, per: pt.dmg * 0.5, cd: ES.burnEvery * TICKS_PER_SEC };
+    }
+    line.pets = line.pets.filter((pt) => pt.until > ctx.tick);
+  }
+  if (f.regen && !poisoned) f.hp = Math.min(f.maxHp, f.hp + f.regen);
+  if (f.shieldMax && !isHeld(f, ctx.tick)) {
     f.shieldCd -= 1;
     if (f.shieldCd <= 0) {
       f.shieldHits = Math.min(f.shieldMax, f.shieldHits + 1);
@@ -385,7 +443,7 @@ export function runDummy(state, cards, type, seconds = 30) {
       dealt += ctx.dealt;
       run.hp = hero.maxHp; // 木人の試しでは倒れない（受けた量だけ数える）
     }
-    if (regenPerTick) dealt -= regenPerTick;
+    if (regenPerTick && !((f.poisonUntil ?? -1) > t)) dealt -= regenPerTick; // 毒の間は回復しない（工程7d）
   }
   // 1周：最初の積み直しが始まるまで ＋ 積み直し
   const cycle = firstRecast === null ? null : (firstRecast + line.recastStart) / TICKS_PER_SEC;

@@ -1,4 +1,5 @@
-// 地域4（雪山）の戦いを測る道具（ゲームには出ない。判定表 第18回 G1・G3）。
+// 地域4（雪山）・地域5（沼地）の戦いを測る道具（ゲームには出ない。判定表 第18回 G1・G3、工程7d）。
+// REGION=5 で沼地。そのときの勇者は「地域4を出るとき」「地域5を出るとき」。
 // 予定表どおりの「地域3を出るとき」「地域4を出るとき」の勇者で、雪山の道とボスを支度なしの制限で回す。
 // node tools/r4-sim.mjs [--r4=hp:500,step:20,atk:10,every:10,shield:3,ssec:2,bhp:34000,batk:30,bshield:5,bssec:1.5]
 // 出す物：技の並びの比（木人 素・盾）、道の敵1体の時間、ボスまでの時間と倒れた数、ボスを倒す時間（並びあり・なし）。
@@ -10,9 +11,10 @@ import { planAfterRegion2 } from '../src/core/plan.js';
 import { TICKS_PER_SEC } from '../src/data/balance.js';
 
 const args = process.argv.slice(2);
-const r4arg = args.find((a) => a.startsWith('--r4='))?.slice(5);
+const R = Number(process.env.REGION ?? 4);
+const r4arg = args.find((a) => a.startsWith('--r4=') || a.startsWith('--rg='))?.slice(5);
 if (r4arg) {
-  const r = region(4);
+  const r = region(R);
   for (const kv of r4arg.split(',')) {
     const [k, v] = kv.split(':');
     const n = Number(v);
@@ -29,13 +31,16 @@ if (r4arg) {
     if (k === 'boss') r.bossAt = n;
     if (k === 'hits') r.enemy.hits = n;
     if (k === 'bhits') r.boss.hits = n;
+    if (k === 'regen') r.enemy.traits = { ...r.enemy.traits, regenPct: n };
+    if (k === 'bregen') r.boss.traits = { ...r.boss.traits, regenPct: n };
+    if (k === 'drain') r.drain = n;
   }
 }
-const r4 = region(4);
-console.log('雪山：', JSON.stringify({ bossAt: r4.bossAt, enemy: r4.enemy, boss: r4.boss }));
+const r4 = region(R);
+console.log(`${r4.name}：`, JSON.stringify({ bossAt: r4.bossAt, enemy: r4.enemy, boss: r4.boss }));
 
 // 予定表の勇者（判定表 第18回 G1：地域3を出るとき 技×3、地域4を出るとき ×4）
-const PROFILES = {
+const PROFILES4 = {
   r3exit: {
     name: '地域3を出るとき（レベル11・剣と盾 格2）',
     level: 11,
@@ -73,11 +78,13 @@ const PROFILES = {
 
 function build(p) {
   const s = planAfterRegion2();
-  s.cleared.push(3);
-  for (const key of region(3).unlocks) {
-    const [what, arg] = key.split(':');
-    if (what === 'region') { if (!s.open.regions.includes(Number(arg))) s.open.regions.push(Number(arg)); }
-    else if (!s.open.unlocks.includes(key)) s.open.unlocks.push(key);
+  for (let id = 3; id < R; id++) {
+    s.cleared.push(id);
+    for (const key of region(id).unlocks) {
+      const [what, arg] = key.split(':');
+      if (what === 'region') { if (!s.open.regions.includes(Number(arg))) s.open.regions.push(Number(arg)); }
+      else if (!s.open.unlocks.includes(key)) s.open.unlocks.push(key);
+    }
   }
   s.hero.level = p.level;
   let items = {};
@@ -88,13 +95,13 @@ function build(p) {
 }
 
 function withLineup(s, list) {
-  return setLineup(s, 4, list).state;
+  return setLineup(s, R, list).state;
 }
 
 // 雪山を回す。支度は無限（倒れたら入口から）。ボスを倒すか limit 分で止める。
 function runR4(s0, limitMin = Number(process.env.LIMIT ?? 30)) {
   let s = structuredClone(s0);
-  s.nextRegion = 4;
+  s.nextRegion = R;
   s = restartRun(s);
   s.run.hp = heroStats(s).maxHp;
   s.run.prep = 1e15;
@@ -120,11 +127,11 @@ function runR4(s0, limitMin = Number(process.env.LIMIT ?? 30)) {
 // ボスとだけ戦う（HP 満タンで、ボスの手前から）。{ win, sec, hpLeft }
 function bossDuel(s0) {
   let s = structuredClone(s0);
-  s.nextRegion = 4;
+  s.nextRegion = R;
   s = restartRun(s);
   s.run.prep = 1e15;
   s.run.hp = heroStats(s).maxHp;
-  s.run.step = region(4).bossAt - 1;
+  s.run.step = region(R).bossAt - 1;
   s.run.nextEnemyAt = 1e9;
   for (let t = 0; t < 10 * 60 * TICKS_PER_SEC; t++) {
     const r = advance(s, 1);
@@ -141,7 +148,7 @@ function bossDuel(s0) {
 // 道の敵1体の時間（入口の敵、並びあり）
 function enemySeconds(s0) {
   let s = structuredClone(s0);
-  s.nextRegion = 4;
+  s.nextRegion = R;
   s = restartRun(s);
   s.run.prep = 1e15;
   s.run.hp = heroStats(s).maxHp;
@@ -156,6 +163,30 @@ function enemySeconds(s0) {
   }
   return { sec: fightTicks / TICKS_PER_SEC / Math.max(1, kills), hpLostPer: hpLost / Math.max(1, kills), maxHp: heroStats(s).maxHp };
 }
+
+// 地域5（沼地：回復する敵）の勇者（工程7d。予定表：地域5を出るとき レベル15・格4・枠7）
+const PROFILES5 = {
+  r4exit: { ...PROFILES4.r4exit, name: '地域4を出るとき（レベル13・格3）' },
+  r5exit: {
+    name: '地域5を出るとき（レベル15・格4）',
+    level: Number(process.env.L5 ?? 15),
+    crafts: [['iron', 'weapon', 4, 0.95], ['iron', 'weapon', 4, 0.95], ['copper', 'armor', 4, 0.9], ['fire', 'accessory', 3, 1], ['stone', 'accessory', 3, 0.9], ['thunder', 'accessory', 3, 0.9], ['wind', 'accessory', 3, 0.9]],
+    nodes: {
+      ...PROFILES4.r4exit.nodes,
+      keiyaku: 4, kemonogoe: 4, ookami: 6, kehai: 4, dokuchishiki: 4, dokuba: 6, chougou: 2, nuri: 2,
+    },
+    lineup: ['dokuba', 'ookami', 'nidan', 'renda', 'tame', 'issen'],
+    tries: [
+      ['dokuba', 'ookami', 'nidan', 'renda', 'tame', 'issen'],
+      ['nuri', 'tame', 'issen', 'ookami', 'renda', 'renda'],
+      ['dokuba', 'nidan', 'renda', 'renda', 'tame', 'issen', 'ookami'],
+      ['ookami', 'dokuba', 'tame', 'issen', 'raigeki', 'rensha'],
+      ['nidan', 'renda', 'renda', 'tame', 'issen'],
+    ],
+  },
+};
+PROFILES5.r4exit.tries = [...(PROFILES4.r4exit.tries ?? []), ['nidan', 'renda', 'renda', 'tame', 'issen']];
+const PROFILES = R === 5 ? PROFILES5 : PROFILES4;
 
 for (const [key, p] of Object.entries(PROFILES)) {
   // ボス戦で一番よい並びを選ぶ（勝ちで一番速い、なければ一番長くもつ）

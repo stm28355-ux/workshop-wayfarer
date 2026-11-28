@@ -109,7 +109,7 @@ test('鏡：置いた鏡に光が当たらない盤は答えではない', () =>
 test('魔法と弓は15節ずつ。奥義は技の節2つが 3/5、合流は別の流派の技と', () => {
   assert.equal(MAGIC_TREE.length, 15);
   assert.equal(BOW_TREE.length, 15);
-  assert.deepEqual(Object.keys(SCHOOLS), ['guard', 'sword', 'magic', 'bow']);
+  assert.deepEqual(Object.keys(SCHOOLS).slice(0, 4), ['guard', 'sword', 'magic', 'bow']);
   const closed = createGame();
   closed.open.unlocks.push('stage:dojo');
   assert.match(scrollCheck(closed, 'eishou').reason, /魔法/);

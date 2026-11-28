@@ -18,15 +18,28 @@ export function newSession({ kind, slot, tier, conc, fire, tools = [] }) {
   const t = targetsOf(kind, slot, tier);
   if (!t) throw new RangeError(`打てない：${kind} ${slot} 格${tier}`);
   const perLevel = GEAR_KINDS[kind].perLevel;
+  const quirk = GEAR_KINDS[kind].quirk ?? null;
   return {
-    kind, slot, tier, tools: tools.slice(), quirk: GEAR_KINDS[kind].quirk ?? null,
+    kind, slot, tier, tools: tools.slice(), quirk,
     band: t.band.id, w: t.band.w, h: t.band.h,
     targets: t.targets.slice(),
     values: t.targets.map(() => 0),
-    perLevel, temp: 0, left: perLevel,
+    perLevel, temp: 0, left: levelLeft(quirk, perLevel, 0),
     conc, fire,
+    seen: [], // 星鉄：叩いて目標が見えたマス
     log: [],
   };
+}
+
+// 段 temp で叩ける回数。竜の鱗は灼熱が長い（工程7d：企画まとめ「灼熱が長いが、強打が使えない」）。
+export const LONG_HEAT = 5;
+function levelLeft(quirk, perLevel, temp) {
+  return quirk === 'longheat' && temp === 0 ? LONG_HEAT : perLevel;
+}
+
+// 目標が見えているか（星鉄は叩いたマスだけ見える。工程7d）。
+export function targetSeen(session, cell) {
+  return session.quirk !== 'hidden' || (session.seen ?? []).includes(cell);
 }
 
 // 叩き方 id でマス cell を叩くと伸びるマス。縦打ちは押したマスと下のマス（一番下の段なら上のマスと）。
@@ -70,6 +83,7 @@ export function hasTool(session, id) {
 
 export function canStrike(session, id) {
   const s = STRIKES[id];
+  if (session.quirk === 'longheat' && id === 'heavy') return false; // 竜の鱗は強打が使えない
   return !!s && hasTool(session, id) && session.temp <= 2 && session.conc >= s.cost && strikeAmount(session, id) !== 0;
 }
 
@@ -100,7 +114,7 @@ function cool(s) {
   s.left -= 1;
   if (s.left === 0) {
     s.temp += 1;
-    s.left = s.perLevel;
+    s.left = levelLeft(s.quirk, s.perLevel, s.temp);
     if (s.quirk === 'decay') s.values = s.values.map((v) => Math.max(0, v - 1));
   }
 }
@@ -113,6 +127,7 @@ export function strike(session, id, cell) {
   const s = { ...session, values: session.values.slice(), log: [...session.log, [id, cell]] };
   for (const c of cells) s.values[c] = Math.max(0, s.values[c] + amount);
   s.conc -= STRIKES[id].cost;
+  if (s.quirk === 'hidden') s.seen = [...new Set([...(s.seen ?? []), ...cells])];
   cool(s);
   return s;
 }
@@ -124,7 +139,7 @@ export function canFire(session) {
 
 export function addFire(session) {
   if (!canFire(session)) return null;
-  return { ...session, temp: session.temp - 1, left: session.perLevel, fire: session.fire - 1, log: [...session.log, ['fire']] };
+  return { ...session, temp: session.temp - 1, left: levelLeft(session.quirk, session.perLevel, session.temp - 1), fire: session.fire - 1, log: [...session.log, ['fire']] };
 }
 
 // もう何もできない（集中力が切れたか、冷えて火も足せない）。

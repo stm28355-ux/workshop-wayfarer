@@ -2,7 +2,9 @@
 import {
   levelOf, skillOf, isNodeOpen, nodeStats, scrollSpec, scrollCheck, startScroll, scrollOpen, scrollFlag, scrollTech, quitScroll, nodeOf, LEVEL_MAX, shapeKey,
   scrollPaint, scrollMark, schoolOpen, scrollPlace, scrollNote, scrollMirror, sudoLeft, beamLeft,
+  scrollRoom, scrollLamp, lampLeft,
 } from '../core/dojo.js';
+import { roomsBoardHtml, lampsBoardHtml, ROOM_RULE_TEXT, LAMP_RULE_TEXT } from './dojo7d-view.js';
 import { NONO_RULES } from '../core/nonogram.js';
 import { ELEMENT_NAMES } from '../core/sudoku.js';
 import { SLASH, BACK } from '../core/mirrors.js';
@@ -36,10 +38,12 @@ export function createDojoUI({ get, set, log }) {
   }
 
   function specText(spec) {
-    const table = spec.kind === 'sudo' ? SUDO_RULE_TEXT : spec.kind === 'beam' ? BEAM_RULE_TEXT : spec.kind === 'nono' ? NONO_RULES : RULES;
+    const table = spec.kind === 'sudo' ? SUDO_RULE_TEXT : spec.kind === 'beam' ? BEAM_RULE_TEXT : spec.kind === 'rooms' ? ROOM_RULE_TEXT : spec.kind === 'lamps' ? LAMP_RULE_TEXT : spec.kind === 'nono' ? NONO_RULES : RULES;
     const rules = spec.rules.length ? spec.rules.map((r) => table[r].name).join('＋') : '変えなし';
     if (spec.kind === 'sudo') return `属性の数独 ${spec.n}×${spec.n}・${rules}`;
     if (spec.kind === 'beam') return `鏡 ${spec.w}×${spec.h}・${rules}`;
+    if (spec.kind === 'rooms') return `部屋分け ${spec.w}×${spec.h}・${rules}`;
+    if (spec.kind === 'lamps') return `灯り ${spec.w}×${spec.h}・${rules}`;
     return spec.kind === 'nono' ? `ピクロス ${spec.w}×${spec.h}・${rules}` : `${spec.w}×${spec.h}・${rules}・罠${spec.count}`;
   }
 
@@ -51,7 +55,8 @@ export function createDojoUI({ get, set, log }) {
         log(`${n.name}の巻物を解いた（熟練＋${e.gain}${e.mistakes ? `・ミス${e.mistakes}` : ''}）${e.to > e.from ? `　${e.to}/5 に上がった` : ''}`, 'good');
       } else if (e.type === 'miss') {
         const k = get().dojo?.scroll?.kind ?? ui.lastKind;
-        log(k === 'nono' ? '塗り間違い（ミス）' : k === 'sudo' ? '置き間違い（ミス）' : k === 'beam' ? '鏡の置き間違い（ミス）' : '罠を開けた（ミス）', 'bad');
+        const MISS = { nono: '塗り間違い（ミス）', sudo: '置き間違い（ミス）', beam: '鏡の置き間違い（ミス）', rooms: '部屋の切り間違い（ミス）。正しい部屋を置いた', lamps: '灯りの置き間違い（ミス）' };
+        log(MISS[k] ?? '罠を開けた（ミス）', 'bad');
       } else if (e.type === 'parry') {
         log('受け流した（ミスにならない）');
       }
@@ -97,7 +102,7 @@ export function createDojoUI({ get, set, log }) {
         set(r.state);
         const k = r.state.dojo.scroll.kind;
         ui.lastKind = k;
-        ui.mode = k === 'nono' ? 'paint1' : k === 'sudo' ? 'place' : k === 'beam' ? 'slash' : 'open';
+        ui.mode = k === 'nono' ? 'paint1' : k === 'sudo' ? 'place' : k === 'beam' ? 'slash' : k === 'lamps' ? 'lamp' : k === 'rooms' ? 'cut' : 'open';
         ui.elem = 0;
         ui.tech = null; ui.glow = null; ui.last = null; ui.quitAsk = false;
       } else log(r.reason);
@@ -172,25 +177,55 @@ export function createDojoUI({ get, set, log }) {
     } else if (sc.kind === 'beam') {
       if (asX || ui.mode === 'x') r = scrollMark(s, i);
       else r = scrollMirror(s, i, ui.mode === 'back' ? BACK : SLASH);
+    } else if (sc.kind === 'lamps') {
+      if (asX || ui.mode === 'x') r = scrollMark(s, i);
+      else r = scrollLamp(s, i);
     }
     if (r?.ok) { set(r.state); handle(r.events); }
     lastKey = '';
     render();
   }
   side.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-scell], [data-bcell]');
+    const b = e.target.closest('[data-scell], [data-bcell], [data-lcell]');
     if (!b || b.disabled) return;
-    placeAct(Number(b.dataset.scell ?? b.dataset.bcell), false);
+    placeAct(Number(b.dataset.scell ?? b.dataset.bcell ?? b.dataset.lcell), false);
   });
   side.addEventListener('contextmenu', (e) => {
-    const b = e.target.closest('[data-bcell], [data-scell]');
+    const b = e.target.closest('[data-bcell], [data-scell], [data-lcell]');
     if (!b) return;
     e.preventDefault();
-    placeAct(Number(b.dataset.bcell ?? b.dataset.scell), true);
+    placeAct(Number(b.dataset.bcell ?? b.dataset.scell ?? b.dataset.lcell), true);
+  });
+  // 召喚：押したまま動かして長方形を切る（1マスなら押すだけ）
+  side.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('[data-rcell]');
+    if (!b || e.button > 0) return;
+    e.preventDefault();
+    const i = Number(b.dataset.rcell);
+    if (ui.tech) { placeAct(i, false); return; }
+    ui.drag = { a: i, b: i };
+    lastKey = '';
+    render();
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!ui.drag) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('#dojo-side [data-rcell]');
+    if (!el) return;
+    const i = Number(el.dataset.rcell);
+    if (i !== ui.drag.b) { ui.drag.b = i; lastKey = ''; render(); }
+  });
+  window.addEventListener('pointerup', () => {
+    if (!ui.drag) return;
+    const { a, b } = ui.drag;
+    ui.drag = null;
+    const r = scrollRoom(get(), a, b);
+    if (r.ok) { set(r.state); handle(r.events); } else if (r.reason) ui.roomNote = r.reason;
+    lastKey = '';
+    render();
   });
   // マウスホイールで押したときの中身を切り替える（判定表 第19回の一言）。盤の上だけ
   side.addEventListener('wheel', (e) => {
-    const board = e.target.closest('.sudo-wrap, .beam-wrap, .nono, .mine-board');
+    const board = e.target.closest('.sudo-wrap, .beam-wrap, .nono, .mine-board, .lamps');
     const sc = get().dojo?.scroll;
     if (!board || !sc) return;
     e.preventDefault();
@@ -200,6 +235,10 @@ export function createDojoUI({ get, set, log }) {
       ui.elem = ((ui.elem ?? 0) + step + sc.puzzle.n) % sc.puzzle.n;
     } else if (sc.kind === 'beam') {
       ui.mode = cycle(['slash', 'back', 'x'], ui.mode);
+    } else if (sc.kind === 'lamps') {
+      ui.mode = cycle(['lamp', 'x'], ui.mode);
+    } else if (sc.kind === 'rooms') {
+      return;
     } else if (sc.kind === 'nono') {
       ui.mode = cycle(sc.puzzle.colors === 2 ? ['paint1', 'paint2', 'x'] : ['paint1', 'x'], ui.mode);
     } else {
@@ -371,7 +410,7 @@ export function createDojoUI({ get, set, log }) {
     if (nodeOf(ui.node)?.school !== ui.school) ui.node = firstOf(ui.school);
     const t = nodeStats(s);
     const parts = Object.entries(t).filter(([, v]) => v > 0).map(([k, v]) => `${STAT[k]}${pct(v)}`);
-    const WHAT = { guard: '守りの流派（巻物は罠の推理）', sword: '剣の流派（巻物はピクロス）', magic: '魔法の流派（巻物は属性の数独）', bow: '弓の流派（巻物は鏡で光を通す）' };
+    const WHAT = { guard: '守りの流派（巻物は罠の推理）', sword: '剣の流派（巻物はピクロス）', magic: '魔法の流派（巻物は属性の数独）', bow: '弓の流派（巻物は鏡で光を通す）', summon: '召喚の流派（巻物は部屋分け）', stealth: '隠密の流派（巻物は灯りを置く）' };
     const what = WHAT[ui.school];
     let h = schoolTabs(s) + `<p class="small">${what}。巻物を解くと熟練が入り、熟練${SKILL.perLevel}で節が1段上がる（解くと${3}、ミス1回につき −1）。<br>小さい節の強さ（流派の合計）：${parts.length ? parts.join('・') : 'まだない'}</p>`;
     if (ui.last) {
@@ -501,11 +540,48 @@ export function createDojoUI({ get, set, log }) {
     return h;
   }
 
+  // 召喚の巻物（部屋分け）
+  function roomsScrollHtml(s) {
+    const sc = s.dojo.scroll;
+    const p = sc.puzzle;
+    const n = nodeOf(sc.node);
+    let h = `<p class="sess-title"><b>${n.name}の巻物</b>（${sc.level}/5 → ${sc.level + 1}/5）</p>`;
+    const base = '<b>部屋分け</b>：盤を長方形の部屋に分ける。どの部屋にも数字がちょうど1つで、部屋のマスの数がその数字';
+    h += `<p class="small scroll-rule">${base}${p.rules.map((r) => `<br><b>${ROOM_RULE_TEXT[r].name}</b>：${ROOM_RULE_TEXT[r].text}`).join('')}</p>`;
+    h += `<div class="dojo-bar"><span class="num">部屋 ${sc.placed.length}/${p.rooms.length}　ミス ${sc.mistakes}</span></div>`;
+    h += techBar(sc);
+    h += roomsBoardHtml(sc, ui.drag);
+    if (ui.roomNote) { h += `<p class="small temp-note">${ui.roomNote}</p>`; ui.roomNote = null; }
+    h += '<p class="small quiet">押したまま動かして長方形を切る（1マスの部屋は押すだけ）。数字がちょうど1つ入った長方形だけ切れる。違う部屋を切るとミスで、正しい部屋が置かれる。小さい数字は岩の守り手（そのマスの部屋の大きさ）。</p>';
+    h += quitHtml();
+    return h;
+  }
+
+  // 隠密の巻物（灯りを置く）
+  function lampsScrollHtml(s) {
+    const sc = s.dojo.scroll;
+    const p = sc.puzzle;
+    const n = nodeOf(sc.node);
+    let h = `<p class="sess-title"><b>${n.name}の巻物</b>（${sc.level}/5 → ${sc.level + 1}/5）</p>`;
+    const base = '<b>灯り</b>：白いマスに灯りを置いて、白いマスを全部照らす。灯りは縦横に壁か端まで照らす。灯りどうしは照らし合わない。壁の数字は上下左右に接する灯りの数';
+    h += `<p class="small scroll-rule">${base}${p.rules.map((r) => `<br><b>${LAMP_RULE_TEXT[r].name}</b>：${LAMP_RULE_TEXT[r].text}`).join('')}</p>`;
+    if (!['lamp', 'x'].includes(ui.mode)) ui.mode = 'lamp';
+    h += `<div class="dojo-bar"><span class="num">灯り あと ${lampLeft(sc)}　ミス ${sc.mistakes}</span>` +
+      `<span class="mode">${[['lamp', '灯りを置く'], ['x', '×']].map(([m, t]) => `<button type="button" data-dact="mode" data-mode="${m}" aria-pressed="${ui.mode === m && !ui.tech}">${t}</button>`).join('')}</span></div>`;
+    h += techBar(sc);
+    h += lampsBoardHtml(sc);
+    h += '<p class="small quiet">照らされたマスは明るくなる。右クリックで×（自分の印）。濃い×は分かった「置かない」。盤の上でマウスホイールを回すと 灯り・× が変わる。小さい数字は影縫い（まわり8マスの灯りの数）。</p>';
+    h += quitHtml();
+    return h;
+  }
+
   function scrollHtml(s) {
     const sc = s.dojo.scroll;
     if (sc.kind === 'nono') return nonoScrollHtml(s);
     if (sc.kind === 'sudo') return sudoScrollHtml(s);
     if (sc.kind === 'beam') return beamScrollHtml(s);
+    if (sc.kind === 'rooms') return roomsScrollHtml(s);
+    if (sc.kind === 'lamps') return lampsScrollHtml(s);
     const p = sc.puzzle;
     const n = nodeOf(sc.node);
     let h = `<p class="sess-title"><b>${n.name}の巻物</b>（${sc.level}/5 → ${sc.level + 1}/5）</p>`;
