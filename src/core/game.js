@@ -63,7 +63,8 @@ export function enemyAt(regionId, i) {
     hp: r.enemy.hp + Math.floor(r.enemy.hpStep * i),
     atk: r.enemy.atk + Math.floor(i / r.enemy.atkEvery),
     hits: r.enemy.hits ?? 1,
-    traits: r.enemy.traits ?? null,
+    // 魔王の城（工程7e）は敵の性質が順に変わる（属性と殻・盾・群れ・回復）
+    traits: r.enemy.traitCycle ? r.enemy.traitCycle[i % r.enemy.traitCycle.length] : r.enemy.traits ?? null,
     drop: i >= deepFrom(regionId) ? { ...d, rank: d.rank + 1 } : d,
   };
 }
@@ -210,6 +211,8 @@ function startFight(s, boss) {
   if (t?.shield) Object.assign(run.fight, { shieldHits: t.shield, shieldMax: t.shield, shieldEvery: t.shieldSec * TICKS_PER_SEC, shieldCd: t.shieldSec * TICKS_PER_SEC });
   if (t?.regenPct) run.fight.regen = (e.hp * t.regenPct) / TICKS_PER_SEC;
   if (t?.swarm) run.fight.swarm = t.swarm; // 群れ（判定表 第13回 C5）：範囲の技は全員に当たる
+  if (t?.elem) run.fight.elem = t.elem; // 属性（工程7e）
+  if (t?.elemCycle) Object.assign(run.fight, { elemCycle: t.elemCycle, elemSec: t.elemSec });
 }
 
 function winFight(s, events) {

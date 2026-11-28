@@ -95,9 +95,20 @@ export const REGIONS = Object.freeze([
     unlocks: ['region:6', 'split'],
   },
   {
-    id: 6, name: '魔王の城', wall: '属性と全部', gap: 30, drain: 22, bossAt: 3000,
-    enemy: { name: '魔王の兵', hp: 7000, hpStep: 250, atk: 70, atkEvery: 8, hits: 1 },
-    boss: { name: '魔王', hp: 630000, atk: 250, hits: 1 },
+    // 工程7e：魔王の城は「属性と全部」。道の敵は 火（殻）・氷（盾）・雷（群れ）・水（回復）の順に変わり、
+    // 弱点（火←水・氷←火・雷←風・水←雷）は×1.5、同じ属性は×0.5。魔王は15秒ごとに属性が変わり、盾と殻を持つ。
+    // 数値は tools/r4-sim.mjs（REGION=6）で予定表の勇者（地域5を出るとき・地域6を出るとき）を戦わせて決めた。
+    id: 6, name: '魔王の城', wall: '属性と全部', gap: 30, drain: 12, bossAt: 3000,
+    enemy: {
+      name: '魔王の兵', hp: 900, hpStep: 6, atk: 55, atkEvery: 30, hits: 1,
+      traitCycle: [
+        { elem: 'fire', shell: 60 },
+        { elem: 'ice', shield: 2, shieldSec: 3 },
+        { elem: 'thunder', swarm: 3 },
+        { elem: 'water', regenPct: 0.03 },
+      ],
+    },
+    boss: { name: '魔王', hp: 120000, atk: 40, hits: 1, traits: { elemCycle: ['fire', 'ice', 'thunder', 'water'], elemSec: 15, shield: 3, shieldSec: 3, shell: 80 } },
     drops: [{ kind: 'dragon', rank: 3 }, { kind: 'star', rank: 3 }, { kind: 'fire', rank: 4 }, { kind: 'star', rank: 4 }],
     unlocks: ['ending'],
   },
