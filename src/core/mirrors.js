@@ -302,6 +302,17 @@ export function generateBeams(spec) {
     countBeams(p, 2, st);
     if (spec.maxNodes && st.nodes > spec.maxNodes) continue;
     if (spec.minNodes && st.nodes < spec.minNodes) continue;
+    // 手がかりを足す（判定表 第19回：技なしでも解き始められるように）。鏡のマスを先に見せる
+    if (spec.extraShown) {
+      // 鏡の半分より多くは見せない（解く所がなくならないように）
+      const hiddenM = cand.filter((c) => !shown.includes(c) && (sol[c] === SLASH || sol[c] === BACK));
+      const allM = cand.filter((c) => sol[c] === SLASH || sol[c] === BACK).length;
+      const room = Math.max(0, hiddenM.length - Math.ceil(allM / 2));
+      const more = shuffle(hiddenM, rand).slice(0, Math.min(spec.extraShown, room));
+      p = makeBeams(w, h, rules, sol, bows, tg, [...shown, ...more]);
+      st.nodes = 0;
+      countBeams(p, 2, st);
+    }
     return { puzzle: p, nodes: st.nodes, attempts: attempt + 1 };
   }
   return null;

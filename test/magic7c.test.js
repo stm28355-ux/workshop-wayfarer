@@ -305,3 +305,30 @@ test('木人に盾が増えた：連射の並びは盾の木人に強い', () =>
   const r = compareDummy(s, ['rensha', 'rensha'], 'shield', 30);
   assert.ok(r.ratio > 1.5, String(r.ratio));
 });
+
+// ───── 判定表 第19回の直し ─────
+import { enemyAt, deepFrom, region as regionOf } from '../src/core/game.js';
+
+test('第19回 Q7：道の半分から先の敵は落とし物のランクが1つ上がる', () => {
+  for (const id of [1, 2, 3, 4]) {
+    const half = deepFrom(id);
+    assert.equal(half, Math.floor(regionOf(id).bossAt / regionOf(id).gap / 2));
+    const d = regionOf(id).drops;
+    const before = enemyAt(id, half - 1).drop;
+    const after = enemyAt(id, half).drop;
+    assert.equal(before.rank, d[(half - 1) % d.length].rank);
+    assert.equal(after.rank, d[half % d.length].rank + 1);
+  }
+});
+
+test('第19回：弓の巻物は答えが決まった後に鏡を足して見せる（5×5 は2、7×7 は3）', () => {
+  const tsuru = BOW_TREE.find((n) => n.id === 'tsuru');
+  const spec = bowSpec(tsuru, 0);
+  assert.equal(spec.extraShown, 2);
+  const g = generateBeams({ ...spec, seed: 4 });
+  const p = g.puzzle;
+  const shownMirrors = p.shown.filter((i) => p.solution[i] === SLASH || p.solution[i] === BACK).length;
+  const allM = p.solution.filter((v) => v === SLASH || v === BACK).length;
+  assert.ok(shownMirrors >= 1 && shownMirrors <= Math.floor(allM / 2) + 1, `${shownMirrors}/${allM}`);
+  assert.equal(countBeams(p, 2), 1);
+});
