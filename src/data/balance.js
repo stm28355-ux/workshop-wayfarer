@@ -75,9 +75,12 @@ export const REGIONS = Object.freeze([
     unlocks: ['region:4', 'crafter:forge', 'school:magic', 'school:bow'],
   },
   {
-    id: 4, name: '雪山', wall: '盾（多段）', gap: 30, drain: 5.6, bossAt: 2400,
-    enemy: { name: '盾の兵', hp: 500, hpStep: 20, atk: 10, atkEvery: 10, hits: 2, traits: { shield: 3, shieldSec: 2 } },
-    boss: { name: '氷の門番', hp: 34000, atk: 30, hits: 2, traits: { shield: 5, shieldSec: 1.5 } },
+    // 判定表 第18回 G3：tools/r4-sim.mjs で予定表の勇者（地域3を出るとき・地域4を出るとき）を戦わせて決めた。
+    // 盾は1回の攻撃を1枚で防ぐので、大きな一撃の前に連撃・連射・雷で盾をはがす並びが要る。
+    // 支度の減りは落とし物の価値に合わせて地域3（1.5）の2倍。
+    id: 4, name: '雪山', wall: '盾（多段）', gap: 30, drain: 3, bossAt: 2400,
+    enemy: { name: '盾の兵', hp: 180, hpStep: 2, atk: 10, atkEvery: 30, hits: 1, traits: { shield: 2, shieldSec: 3 } },
+    boss: { name: '氷の門番', hp: 7000, atk: 16, hits: 1, traits: { shield: 4, shieldSec: 3 } },
     drops: [{ kind: 'mithril', rank: 2 }, { kind: 'ice', rank: 3 }, { kind: 'thunder', rank: 2 }, { kind: 'mithril', rank: 3 }],
     unlocks: ['region:5', 'disciple', 'school:summon', 'school:stealth'],
   },

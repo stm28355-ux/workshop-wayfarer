@@ -4,7 +4,7 @@
 // 並びの進み（line）は出発ごとに頭から。歩いている間は止まり、次の敵で続きを使う。
 // 戦いの1刻みの手（heroAct・enemyAct・tickFight）は、ゲームと木人で同じ物を使う。
 
-import { CARDS, LINEUP, STATES, SHELL_MIN } from '../data/cards.js';
+import { CARDS, LINEUP, STATES, SHELL_MIN, ELEMENT_STATES as ES, BLUNT } from '../data/cards.js';
 import { ALL_NODES } from '../data/schools.js';
 import { GEAR_KINDS } from '../data/forge.js';
 import { TICKS_PER_SEC } from '../data/balance.js';
@@ -55,7 +55,7 @@ export function setLineup(state, regionId, cards) {
 }
 
 export function newLine() {
-  return { pos: 0, recast: 0, mods: [], dodge: 0, parry: 0, stanceUntil: -1, focusUntil: -1, counter: 0 };
+  return { pos: 0, recast: 0, mods: [], dodge: 0, parry: 0, stanceUntil: -1, focusUntil: -1, counter: 0, chase: false, free: false };
 }
 
 // 積み直しの刻み（装備中の武器。素手は3秒）。
@@ -76,6 +76,7 @@ export function hitEnemy(f, raw, tick, pierce = false) {
   }
   const broken = f.breakUntil > tick;
   let dmg = raw * (broken ? STATES.breakTaken : 1);
+  if ((f.markUntil ?? -1) > tick) dmg *= ES.markTaken;
   const shell = pierce ? 0 : (f.shell ?? 0) * (broken ? STATES.breakShell : 1);
   if (shell > 0) dmg = Math.max(dmg * SHELL_MIN, dmg - shell);
   f.hp -= dmg;
@@ -92,13 +93,61 @@ function addBleed(ctx, n) {
   return hitEnemy(f, hero.atk * STATES.bleedBurst, tick, true);
 }
 
+export function isFrozen(f, tick) {
+  return (f.frozenUntil ?? -1) > tick;
+}
+export function isWet(f, tick) {
+  return (f.wetUntil ?? -1) > tick;
+}
+
+// 属性の状態を付ける（判定表 第18回 D）。技のダメージの前に呼ぶ。{ mult：この技の倍率 } を返す。
+function applyElement(ctx, c, id, p, wetMod) {
+  const { hero, f, tick, events } = ctx;
+  let mult = 1;
+  if (wetMod) { f.wetUntil = tick + ES.wetSec * TICKS_PER_SEC; events.push({ type: 'state', state: 'wet' }); }
+  const frozen = isFrozen(f, tick);
+  // 打撃と氷の矢：凍った敵に3倍で、解ける
+  if (frozen && (BLUNT.includes(id) || c.shatter)) {
+    mult *= ES.shatter;
+    f.frozenUntil = -1;
+    events.push({ type: 'state', state: 'shatter' });
+  }
+  if (c.elem === 'fire') {
+    if (frozen) { f.frozenUntil = -1; events.push({ type: 'state', state: 'melt' }); }
+    if (isWet(f, tick)) {
+      mult *= ES.wetFire;
+      f.wetUntil = -1;
+    } else {
+      f.burn = { left: ES.burnTimes, per: hero.atk * ES.burnPer * p, cd: ES.burnEvery * TICKS_PER_SEC };
+      events.push({ type: 'state', state: 'burn' });
+    }
+  } else if (c.elem === 'ice' && !isFrozen(f, tick)) {
+    f.chill = (f.chill ?? 0) + 1;
+    if (isWet(f, tick) || f.chill >= ES.chillToFreeze) {
+      f.frozenUntil = tick + ES.freezeSec * TICKS_PER_SEC;
+      f.chill = 0;
+      events.push({ type: 'state', state: 'freeze' });
+    }
+  } else if (c.elem === 'thunder') {
+    f.shock = ES.shockHits;
+    const strip = c.strip ?? 1;
+    f.shieldHits = Math.max(0, (f.shieldHits ?? 0) - strip);
+    events.push({ type: 'state', state: 'shock' });
+  } else if (c.elem === 'wind') {
+    if (f.burn) { f.burnSpread = true; events.push({ type: 'state', state: 'spread' }); }
+  }
+  if (c.mark) { f.markUntil = tick + ES.markSec * TICKS_PER_SEC; events.push({ type: 'state', state: 'mark' }); }
+  return mult;
+}
+
 // 技を当てる。area：群れの全員に（群れでなければ1体）。
-function applyTech(ctx, c, p, area = false) {
+function applyTech(ctx, c, p, area = false, extra = {}) {
   const { hero, line, f, tick } = ctx;
   let dealt = 0;
   const bodies = area || c.area ? f.swarm ?? 1 : 1;
+  const em = applyElement(ctx, c, extra.id, p, extra.wet);
   if (c.damage) {
-    for (let b = 0; b < bodies; b++) for (let k = 0; k < (c.hits ?? 1); k++) dealt += hitEnemy(f, hero.atk * c.damage * p, tick, !!c.pierce);
+    for (let b = 0; b < bodies; b++) for (let k = 0; k < (c.hits ?? 1); k++) dealt += hitEnemy(f, hero.atk * c.damage * p * em, tick, !!c.pierce || !!extra.pierce);
   }
   if (c.bleed) dealt += addBleed(ctx, c.bleed);
   if (c.breakSec) f.breakUntil = Math.max(f.breakUntil ?? -1, tick + c.breakSec * TICKS_PER_SEC * p);
@@ -115,6 +164,8 @@ function applyTech(ctx, c, p, area = false) {
 // 条件が合うか。
 function condHolds(ctx, c) {
   if (c.cond === 'opening') return ctx.tick - (ctx.f.start ?? 0) < STATES.iaiSec * TICKS_PER_SEC;
+  if (c.cond === 'frozen') return isFrozen(ctx.f, ctx.tick);
+  if (c.cond === 'marked') return (ctx.f.markUntil ?? -1) > ctx.tick;
   return ctx.run.hp <= ctx.hero.maxHp / 2;
 }
 
@@ -132,17 +183,31 @@ function useCard(ctx, id) {
     events.push({ type: 'card', id });
     return { time: 0, dealt: 0, stack: c.count };
   }
+  if (c.type === 'trig') {
+    line.chase = true;
+    events.push({ type: 'card', id });
+    return { time: 0, dealt: 0, skip: false }; // 時間を使わず、続けて次の札へ（条件が合ったのと同じ）
+  }
   if (c.type === 'mod') {
-    line.mods.push({ mult: c.mult ?? 1, timeMult: c.timeMult ?? 1, area: !!c.area });
+    line.mods.push({ mult: c.mult ?? 1, timeMult: c.timeMult ?? 1, area: !!c.area, repeat: c.repeat ?? 1, wet: !!c.wet, pierce: !!c.pierce });
     events.push({ type: 'card', id });
     return { time: c.swings, dealt: 0 };
   }
   const mult = line.mods.reduce((a, m) => a * m.mult, 1);
   const tm = line.mods.reduce((a, m) => a * m.timeMult, 1);
   const area = line.mods.some((m) => m.area);
+  const repeat = line.mods.reduce((a, m) => a * m.repeat, 1);
+  const extra = { id, wet: line.mods.some((m) => m.wet), pierce: line.mods.some((m) => m.pierce) };
   events.push({ type: 'card', id, mods: line.mods.length });
   line.mods = [];
-  return { time: c.swings * tm, dealt: applyTech(ctx, c, p * mult, area) };
+  let dealt = 0;
+  for (let k = 0; k < repeat; k++) dealt += applyTech(ctx, c, p * mult, area, k === 0 ? extra : { id });
+  // 追い撃ち：この技で倒したら、次の札を次の敵へ時間なしで使う
+  if (line.chase) {
+    line.chase = false;
+    if (ctx.f.hp <= 0) { line.free = true; events.push({ type: 'chase' }); }
+  }
+  return { time: c.swings * tm, dealt };
 }
 
 // 勇者の番（heroCd が 0 になったとき）。当てた量を返す。
@@ -155,6 +220,9 @@ export function heroAct(ctx) {
         line.recast = ctx.recast;
         break;
       }
+      // 追い撃ちで倒した後の札は時間なし（その札を使う前に決める。倒した札自身には掛からない）
+      const freeNow = line.free && ['tech', 'mod'].includes(CARDS[cards[line.pos]].type);
+      if (freeNow) line.free = false;
       const r = useCard(ctx, cards[line.pos]);
       if (r.skip !== undefined) {
         line.pos += r.skip ? 2 : 1;
@@ -177,8 +245,11 @@ export function heroAct(ctx) {
           dealt += r2.dealt;
         }
       }
+      // 追い撃ちで放つ札は時間なし（次の敵の最初の手）
+      const wasFree = freeNow;
+      if (wasFree) time = 0;
       // 時間の端数は捨てずに次へ持ち越す（攻撃の速さの小さい伸びも効くように）
-      f.heroCd += Math.max(1, time * hero.attackTicks * (hero.cast ?? 1)); // 札の時間は雷の耳飾りで縮む（判定表 第16回 C4）
+      f.heroCd += wasFree ? 1 : Math.max(1, time * hero.attackTicks * (hero.cast ?? 1)); // 札の時間は雷の耳飾りで縮む（判定表 第16回 C4）
       if (line.pos >= cards.length) {
         // 最後の札が終わってから積み直し
         line.pos = 0;
@@ -187,14 +258,23 @@ export function heroAct(ctx) {
       return dealt;
     }
   }
-  // 普通の攻撃
+  // 普通の攻撃。感電の間は群れの隣にも（濡れていれば全員に）当たる
   f.heroCd += hero.attackTicks; // 端数を持ち越す
-  return hitEnemy(f, hero.atk, ctx.tick);
+  let bodies = 1;
+  if (f.shock > 0) {
+    f.shock -= 1;
+    bodies = Math.min(f.swarm ?? 1, isWet(f, ctx.tick) ? f.swarm ?? 1 : 2);
+  }
+  let dealt = 0;
+  for (let b = 0; b < bodies; b++) dealt += hitEnemy(f, hero.atk, ctx.tick);
+  return dealt;
 }
 
 // 敵の番（enemyCd が 0 になったとき）。勇者が受けた量を返す（反撃で敵に当てた量は dealt に足す）。
 export function enemyAct(ctx) {
   const { hero, line, f, run, events, tick } = ctx;
+  // 凍っている間は動かない（解けたらすぐ動く）
+  if (isFrozen(f, tick)) { f.enemyCd = 1; return 0; }
   f.enemyCd = f.enemyTicks;
   if (tick < line.focusUntil) {
     ctx.dealt = (ctx.dealt ?? 0) + hitEnemy(f, hero.atk * line.counter, tick);
@@ -227,8 +307,20 @@ export function tickFight(ctx) {
     dealt = (hero.atk * STATES.bleedPer * f.bleed * (1 + (hero.tree?.bleed ?? 0))) / TICKS_PER_SEC;
     f.hp -= dealt;
   }
+  // 燃焼（殻と盾を無視。風で広がっていれば群れの全員）
+  if (f.burn && f.burn.left > 0) {
+    f.burn.cd -= 1;
+    if (f.burn.cd <= 0) {
+      const d = f.burn.per * (f.burnSpread ? f.swarm ?? 1 : 1);
+      f.hp -= d;
+      dealt += d;
+      f.burn.left -= 1;
+      f.burn.cd = ES.burnEvery * TICKS_PER_SEC;
+      if (f.burn.left <= 0) { f.burn = null; f.burnSpread = false; }
+    }
+  }
   if (f.regen) f.hp = Math.min(f.maxHp, f.hp + f.regen);
-  if (f.shieldMax) {
+  if (f.shieldMax && !isFrozen(f, ctx.tick)) {
     f.shieldCd -= 1;
     if (f.shieldCd <= 0) {
       f.shieldHits = Math.min(f.shieldMax, f.shieldHits + 1);
@@ -250,6 +342,7 @@ export function levelsOf(state, cards) {
 export const DUMMIES = Object.freeze({
   plain: { name: '素の敵', text: '1秒に1回、最大HPの5%の攻撃' },
   swarm: { name: '群れ', text: '3体の群れ。1秒に3回、最大HPの2%の攻撃' },
+  shield: { name: '盾', text: '盾3枚（1回の攻撃を1枚で防ぐ）。2秒ごとに1枚張り直す' },
   shell: { name: '硬い殻', text: '1回の攻撃から、勇者の攻撃の8割を引く' },
   regen: { name: '回復', text: '毎秒、普通の攻撃の6割ぶん回復する（差し引きを出す）' },
 });
@@ -262,6 +355,7 @@ export function runDummy(state, cards, type, seconds = 30) {
   if (type === 'swarm') { f.atk = hero.maxHp * 0.02; f.enemyTicks = Math.round(TICKS_PER_SEC / 3); f.enemyCd = f.enemyTicks; f.swarm = 3; }
   f.start = 0;
   if (type === 'shell') f.shell = hero.atk * 0.8;
+  if (type === 'shield') Object.assign(f, { shieldHits: 3, shieldMax: 3, shieldEvery: 2 * TICKS_PER_SEC, shieldCd: 2 * TICKS_PER_SEC });
   const regenPerTick = type === 'regen' ? (base * 0.6) / TICKS_PER_SEC : 0;
   const line = newLine();
   const run = { hp: 1e15 };

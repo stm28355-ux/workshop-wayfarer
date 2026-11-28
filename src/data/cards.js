@@ -21,10 +21,31 @@ export const CARDS = Object.freeze({
   nidan: { name: '二段', type: 'stack', swings: 0, count: 2, node: 'nidan', text: '次の2枚を同時に使う（時間は長い方）' },
   hanika: { name: '範囲化', type: 'mod', swings: 0.5, mult: 1, timeMult: 1.2, area: true, node: 'hanika', text: '次の技が群れの全員に当たる（時間×1.2）' },
   iai: { name: '居合', type: 'cond', swings: 0, cond: 'opening', node: 'iai', text: '戦いが始まって3秒より後なら、次の1枚を飛ばす' },
+  // 魔法（判定表 第18回 E）。elem：属性（D1）。打撃（blunt）は強斬り・盾打ち・剣盾
+  kakyu: { name: '火球', type: 'tech', swings: 2, damage: 1.5, elem: 'fire', node: 'kakyu', text: '火 攻撃×1.5＋燃焼' },
+  hyoso: { name: '氷の槍', type: 'tech', swings: 2, damage: 1.8, elem: 'ice', node: 'hyoso', text: '氷 攻撃×1.8（濡れていれば凍る、でなければ2回で凍る）' },
+  raigeki: { name: '雷撃', type: 'tech', swings: 1.5, damage: 1.2, elem: 'thunder', node: 'raigeki', text: '雷 攻撃×1.2＋感電（盾を1枚はがす）' },
+  inseki: { name: '隕石', type: 'tech', swings: 3, damage: 5.0, area: true, elem: 'fire', node: 'inseki', text: '火 攻撃×5.0 を群れの全員に＋燃焼' },
+  mahouken: { name: '魔法剣', type: 'tech', swings: 2, damage: 2.0, elem: 'thunder', strip: 2, node: 'mahouken', text: '雷 攻撃×2.0＋感電、盾を2枚はがす' },
+  nijuu: { name: '二重詠唱', type: 'mod', swings: 0, mult: 1, timeMult: 1.5, repeat: 2, node: 'nijuu', text: '次の技を2回使う（時間は1.5倍）' },
+  matou: { name: '水をまとう', type: 'mod', swings: 0.5, mult: 1, timeMult: 1, wet: true, node: 'matou', text: '次の技に濡れを付ける' },
+  kooreba: { name: '凍っていれば', type: 'cond', swings: 0, cond: 'frozen', node: 'kooreba', text: '敵が凍っていなければ次の1枚を飛ばす' },
+  // 弓（判定表 第18回 F）
+  rensha: { name: '連射', type: 'tech', swings: 1, damage: 0.4, hits: 5, node: 'rensha', text: '攻撃×0.4 を5回（盾に強い）' },
+  neraiuchi: { name: '狙い撃ち', type: 'tech', swings: 1.5, damage: 2.0, mark: true, node: 'neraiuchi', text: '攻撃×2.0＋印（10秒、受けるダメージ＋20%）' },
+  kazeya: { name: '風の矢', type: 'tech', swings: 1, damage: 1.0, elem: 'wind', node: 'kazeya', text: '風 攻撃×1.0、燃焼を群れの全員へ広げる' },
+  ryuusei: { name: '流星', type: 'tech', swings: 2.5, damage: 0.6, hits: 8, area: true, node: 'ryuusei', text: '攻撃×0.6 を8回、群れの全員に' },
+  kooriya: { name: '氷の矢', type: 'tech', swings: 1.5, damage: 1.5, elem: 'ice', shatter: true, node: 'kooriya', text: '氷 攻撃×1.5、凍った敵には打撃と同じく3倍' },
+  oiuchi: { name: '追い撃ち', type: 'trig', swings: 0, node: 'oiuchi', text: '次の技で敵を倒したら、その次の札を次の敵へすぐ放つ（時間なし）' },
+  shirushi: { name: '印があれば', type: 'cond', swings: 0, cond: 'marked', node: 'shirushi', text: '敵に印がなければ次の1枚を飛ばす' },
+  tsuranuki: { name: '貫き', type: 'mod', swings: 0.5, mult: 1, timeMult: 1, pierce: true, node: 'tsuranuki', text: '次の技が殻を無視する' },
 });
 
+// 打撃の札（凍った敵に3倍。判定表 第18回 D1・D4）
+export const BLUNT = Object.freeze(['strong', 'tateuchi', 'kenjun']);
+
 // 札の種類の呼び名
-export const CARD_KINDS = Object.freeze({ tech: '技', mod: '修飾', cond: '条件', stack: '重ね' });
+export const CARD_KINDS = Object.freeze({ tech: '技', mod: '修飾', cond: '条件', stack: '重ね', trig: '引き金' });
 
 export const LINEUP = Object.freeze({
   baseSlots: 3,
@@ -37,6 +58,20 @@ export const LINEUP = Object.freeze({
 // 出血（第13回 C3）：1重ごとに毎秒、勇者の攻撃×bleedPer を削る（殻を無視）。bleedMax 重で弾けて攻撃×bleedBurst、重ねは0に。
 // 居合：戦いが始まって iaiSec 秒まで。
 export const STATES = Object.freeze({ breakTaken: 1.3, breakShell: 0.5, stanceTaken: 0.5, bleedPer: 0.1, bleedMax: 5, bleedBurst: 3, iaiSec: 3 });
+
+// 属性の状態（判定表 第18回 D2〜D6。全部仮）。
+// 燃焼：burnEvery 秒ごとに 攻撃×burnPer を burnTimes 回（付け直すと回数が戻る）。殻と盾を無視。
+// 濡れ：wetSec 秒。火の技は wetFire 倍で燃焼は付かず、濡れは消える。
+// 凍結：freezeSec 秒、敵の攻撃と盾の張り直しが止まる。濡れていれば氷1回、でなければ氷 chillToFreeze 回。打撃は shatter 倍で、当てると解ける。火でも解ける。
+// 感電：次の shockHits 回の普通の攻撃が群れの隣にも当たる（濡れていれば群れの全員）。付いたときに盾を1枚はがす。
+// 印：markSec 秒、受けるダメージ ×markTaken。
+export const ELEMENT_STATES = Object.freeze({
+  burnEvery: 3, burnPer: 0.3, burnTimes: 5,
+  wetSec: 8, wetFire: 0.5,
+  freezeSec: 2, chillToFreeze: 2, shatter: 3,
+  shockHits: 3,
+  markSec: 10, markTaken: 1.2,
+});
 
 // 殻を通るダメージの下限（殻より小さい攻撃でも元の1割は通る）。
 export const SHELL_MIN = 0.1;

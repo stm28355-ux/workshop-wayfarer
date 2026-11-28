@@ -47,7 +47,7 @@ export const GUARD_TREE = Object.freeze([
   { id: 'ukenagashi', name: '受け流し', kind: 'tech', branch: '息吹', needs: ['ibuki'], rule: 'connect', tech: 'ukenagashi' },
   { id: 'seishin', name: '静心', kind: 'small', branch: '息吹', needs: ['ukenagashi'], stat: { speed: 0.02 } },
   { id: 'tame', name: '溜め', kind: 'card', branch: '息吹', needs: ['seishin'], rule: 'pair', text: '修飾の札：次の技が2倍、時間も伸びる' },
-  { id: 'shingan', name: '心眼', kind: 'secret', branch: '奥', needsAny: { of: ['tategamae', 'kizu', 'tame'], n: 2 }, rules: ['cross', 'connect'], tech: 'shingan' },
+  { id: 'shingan', name: '心眼', kind: 'secret', branch: '奥', needsAny: { of: ['tategamae', 'kizu', 'tame'], n: 2, level: 3 }, rules: ['cross', 'connect'], tech: 'shingan' },
 ].map((n) => ({ ...n, school: 'guard' })));
 // 合流「剣盾」は剣の木へ移した（src/data/sword.js、判定表 第13回 C1）。
 
