@@ -162,3 +162,16 @@ test('木人：殻には強斬り＋崩し、群れには見切りが効く。�
   assert.ok(d.cycleSec > 3);
   assert.deepEqual(d.timeline.map((e) => e.id), ['strong', 'tame', 'strong']);
 });
+
+test('攻撃の速さの小さい伸びも効く（端数を持ち越す）。見せるときは0.01秒で切り上げ', async () => {
+  const { intervalText } = await import('../src/core/gear.js');
+  const s = createGame();
+  s.dojo.nodes.seishin = { skill: 2 }; // 攻撃の速さ ＋2%
+  const hero = heroStats(s);
+  assert.ok(hero.attackTicks < 10);
+  const r = fight(s, [], 1000);
+  assert.equal(r.log.length, 102, '100秒で100回ではなく102回');
+  assert.equal(intervalText(hero.attackTicks), '0.99');
+  assert.equal(intervalText(10), '1');
+  assert.equal(intervalText(14), '1.4');
+});

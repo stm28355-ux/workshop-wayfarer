@@ -371,3 +371,9 @@ dialog li { margin-bottom: 6px; }
 .tl.recast { border-style: dashed; }
 .timeline .arrow { color: var(--quiet); }
 .fight-line { font-size: 0.8rem; color: var(--quiet); min-height: 1.4em; }
+.card-ghost {
+  position: fixed; left: 0; top: 0; z-index: 20; pointer-events: none; padding: 8px 12px; border-radius: 8px;
+  background: var(--panel); border: 1px solid var(--accent); font-weight: 700; font-size: 0.9rem; opacity: 0.95;
+}
+.slot.hover { box-shadow: 0 0 0 2px var(--ink) inset; }
+.slots .slot, .hand .card { touch-action: none; user-select: none; -webkit-user-select: none; }

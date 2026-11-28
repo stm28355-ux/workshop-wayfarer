@@ -129,6 +129,77 @@ export function createDojoUI({ get, set, log }) {
     if (e.key === 'f' || e.key === 'F') { e.preventDefault(); act(Number(b.dataset.mcell), true); }
   });
 
+  // ───── 並びのドラッグ・ドロップ（判定表 第10回 Q2：マージの盤と同じように） ─────
+  // 持っている札 → 枠：その枠に置く（空きの先なら後ろに足す）。枠 → 枠：入れ替える。枠 → 枠の外：外す。
+  let ldrag = null;
+  let ghostEl = null;
+  let skipClick = false;
+  const slotUnder = (x, y) => document.elementFromPoint(x, y)?.closest('#dojo-side [data-dact="slot"]') ?? null;
+  side.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    const b = e.target.closest('[data-dact="card"], [data-dact="slot"]');
+    if (!b || !b.closest('#dojo-body')) return;
+    const s = get();
+    if (b.dataset.dact === 'slot') {
+      const i = Number(b.dataset.slot);
+      const id = lineupFor(s, editRegion(s))[i];
+      if (!id) return;
+      ldrag = { from: 'slot', index: i, id, x: e.clientX, y: e.clientY, moved: false };
+    } else {
+      ldrag = { from: 'card', id: b.dataset.card, x: e.clientX, y: e.clientY, moved: false };
+    }
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!ldrag) return;
+    if (!ldrag.moved && Math.hypot(e.clientX - ldrag.x, e.clientY - ldrag.y) > 6) {
+      ldrag.moved = true;
+      ghostEl = document.createElement('div');
+      ghostEl.className = 'card-ghost';
+      ghostEl.textContent = CARDS[ldrag.id].name;
+      document.body.appendChild(ghostEl);
+    }
+    if (ldrag.moved) {
+      ghostEl.style.transform = `translate(${e.clientX - 36}px, ${e.clientY - 20}px)`;
+      for (const el of side.querySelectorAll('.slot.hover')) el.classList.remove('hover');
+      slotUnder(e.clientX, e.clientY)?.classList.add('hover');
+    }
+  });
+  window.addEventListener('pointerup', (e) => {
+    if (!ldrag) return;
+    const d = ldrag;
+    ldrag = null;
+    ghostEl?.remove();
+    ghostEl = null;
+    if (!d.moved) return;
+    skipClick = true; // ドラッグの後のクリックは扱わない
+    const s = get();
+    const r = editRegion(s);
+    const list = lineupFor(s, r).slice();
+    const max = slotCount(s);
+    const target = slotUnder(e.clientX, e.clientY);
+    const to = target ? Math.min(Number(target.dataset.slot), list.length) : null;
+    if (d.from === 'card') {
+      if (to === null) return;
+      if (to === list.length && list.length >= max) return;
+      list[to] = d.id;
+    } else if (to === null) {
+      list.splice(d.index, 1); // 枠の外へ落とすと外す
+    } else if (to === list.length) {
+      list.splice(d.index, 1);
+      list.push(d.id);
+    } else {
+      [list[d.index], list[to]] = [list[to], list[d.index]];
+    }
+    set(setLineup(s, r, list.slice(0, max)).state);
+    ui.pick = null;
+    ui.slot = null;
+    lastKey = '';
+    render();
+  });
+  side.addEventListener('click', (e) => {
+    if (skipClick) { skipClick = false; e.stopImmediatePropagation(); }
+  }, true);
+
   // ───── 描く ─────
   function render() {
     const s = get();
@@ -301,7 +372,7 @@ export function createDojoUI({ get, set, log }) {
       const lvText = c.node ? `・${lv}/5 効き＋${Math.round((lv - 1) * 10)}%` : '';
       return `<button type="button" class="opt card k-${c.type}${ui.pick === id ? ' sel' : ''}" data-dact="card" data-card="${id}">${c.name}<small>${kind}・${c.swings}振り${lvText}</small><small>${c.text}</small></button>`;
     }).join('') + '</div>';
-    h += '<p class="small quiet">札を押してから枠を押す（枠を先に押してもよい）。同じ札を2回押すと後ろに足す。枠を押すと外す・前後へ動かせる。</p>';
+    h += '<p class="small quiet">札を枠へドラッグして置く（枠どうしは入れ替え、枠の外へ落とすと外す）。押してから枠を押してもよい。同じ札を2回押すと後ろに足す。</p>';
     // 木人
     h += '<h3>木人で試す（30秒）</h3><table class="dummy"><thead><tr><th>木人</th><th>毎秒のダメージ</th><th>受けたダメージ</th></tr></thead><tbody>';
     let cycle = null;

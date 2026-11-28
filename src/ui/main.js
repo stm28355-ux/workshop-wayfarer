@@ -2,7 +2,7 @@
 import { APP_VERSION } from '../version.js';
 import { createGame, advance, feed, moveItem, chooseRegion, region, isOpen } from '../core/game.js';
 import { xpToNext } from '../core/hero.js';
-import { heroStats, damageTaken } from '../core/gear.js';
+import { heroStats, damageTaken, intervalText } from '../core/gear.js';
 import { rankValue } from '../core/rank.js';
 import { TICKS_PER_SEC, PREP, KINDS } from '../data/balance.js';
 import { load, save, clear } from './save.js';
@@ -387,7 +387,7 @@ function render(now) {
 
   renderRegions();
   $('region-note').textContent = s.nextRegion !== run.region ? `（次は ${region(s.nextRegion).name}）` : '';
-  $('hero-level').textContent = `勇者 Lv${s.hero.level}　攻撃${Math.round(atk)}${attackTicks !== 10 ? `（${attackTicks / TICKS_PER_SEC}秒に1回）` : ''}`;
+  $('hero-level').textContent = `勇者 Lv${s.hero.level}　攻撃${Math.round(atk)}${attackTicks !== 10 ? `（${intervalText(attackTicks, TICKS_PER_SEC)}秒に1回）` : ''}`;
   setBar('hp-bar', run.hp / maxHp);
   $('hp-text').textContent = `HP ${Math.max(0, Math.ceil(run.hp))}/${Math.round(maxHp)}`;
   $('xp-text').textContent = `経験 ${s.hero.xp}/${xpToNext(s.hero.level)}`;
