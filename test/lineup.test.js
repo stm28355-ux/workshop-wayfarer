@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { GUARD_TREE } from '../src/data/dojo.js';
 import assert from 'node:assert/strict';
 import { createGame, advance } from '../src/core/game.js';
 import { heroStats } from '../src/core/gear.js';
@@ -52,7 +53,9 @@ test('使える札：強斬りは道場で、守りの札は節が 1/5 で', () 
   const s = createGame();
   s.open.unlocks.push('stage:dojo');
   assert.deepEqual(availableCards(s), ['strong']);
-  assert.equal(availableCards(withNodes(1)).length, Object.keys(CARDS).length);
+  // 守りの節だけなら、剣の札は使えない
+  const guardCards = Object.keys(CARDS).filter((id) => !CARDS[id].node || GUARD_TREE.some((n) => n.id === CARDS[id].node));
+  assert.deepEqual(availableCards(withNodes(1)), guardCards);
 });
 
 test('並びは地域ごと。まだない地域は一つ前の並び。枠を超える札と使えない札は除く', () => {

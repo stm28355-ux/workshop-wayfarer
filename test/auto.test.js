@@ -29,8 +29,10 @@ function solve(s) {
 
 test('巻物の形：変えルールの組み合わせと盤の大きさ。人が解くと覚える', () => {
   assert.equal(shapeKey({ rules: ['pair', 'cross'], w: 6, h: 6 }), 'cross+pair:6x6');
-  assert.equal(shapeName('base:5x5'), '土台 5×5');
-  assert.equal(shapeName('cross+pair:6x6'), '十字＋組 6×6');
+  assert.equal(shapeName('base:5x5'), '守り 土台 5×5');
+  assert.equal(shapeName('cross+pair:6x6'), '守り 十字＋組 6×6');
+  assert.equal(shapeName('nono/color+mirror:7x7'), '剣 色＋鏡 7×7');
+  assert.equal(shapeKey({ kind: 'nono', rules: ['mirror', 'color'], w: 7, h: 7 }), 'nono/color+mirror:7x7');
   let s = opened('stage:dojo');
   s = startScroll(s, 'kamae').state;
   s = solve(s);

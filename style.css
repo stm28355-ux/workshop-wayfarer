@@ -418,3 +418,11 @@ dialog li { margin-bottom: 6px; }
 .nc.mid.wrong { box-shadow: 0 0 0 2px var(--bad) inset; }
 .nc.mid-l { margin-left: 3px; }
 @media (max-width: 480px) { .nono { grid-template-columns: auto repeat(var(--w, 5), minmax(0, 38px)); } .nc { min-height: 28px; } .nono-clue { font-size: 0.85rem; gap: 3px; } }
+/* 剣の巻物（道場の中）と札の種類 */
+.dojo-side .nono { grid-template-columns: auto repeat(var(--w, 5), minmax(0, 42px)); }
+.nc { position: relative; }
+.nc.sure { color: var(--ink); background: #14171c; }
+.nc .hint { position: absolute; left: 3px; bottom: 1px; font-style: normal; font-size: 0.65rem; color: var(--accent); font-weight: 700; }
+.school-tabs { margin-bottom: 4px; }
+.slot.k-stack, .tl.k-stack { border-color: #6fd1c4; }
+.card.k-stack { border-left: 3px solid #6fd1c4; }

@@ -1,6 +1,6 @@
 // 試作画面（工程3）：冒険・マージの盤・打ち分け・工房。ルールは src/core の関数を呼ぶだけ。
 import { APP_VERSION } from '../version.js';
-import { createGame, advance, feed, moveItem, chooseRegion, region, isOpen } from '../core/game.js';
+import { createGame, advance, feed, moveItem, chooseRegion, region, isOpen, restartRun } from '../core/game.js';
 import { xpToNext } from '../core/hero.js';
 import { heroStats, damageTaken, intervalText } from '../core/gear.js';
 import { rankValue } from '../core/rank.js';
@@ -10,6 +10,7 @@ import { createForgeUI, craftText } from './forge-ui.js';
 import { createDojoUI } from './dojo-ui.js';
 import { createAutoUI } from './auto-ui.js';
 import { planAfterRegion2 } from '../core/plan.js';
+import { SWORD_TREE } from '../data/sword.js';
 import { activeCards } from '../core/lineup.js';
 import { CARDS } from '../data/cards.js';
 
@@ -21,7 +22,8 @@ const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
 // ?test=line は地域2のボスの後で、守りの札が全部使え（節 1/5）、技の節3つが 3/5（枠6）。
 // ?test=r3 は地域2のボスを倒した直後の、予定表どおりの状態（判定表 第11回 D4。src/core/plan.js）。
 // ?test=auto は門下生と振り分けが来ている状態（第11回 D5）。
-const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto'].includes(params.get('test')) ? params.get('test') : null;
+// ?test=sword は地域2のボスの後で、剣の節が全部 1/5（札が全部使える）、連撃・十字斬り・範囲化が 3/5（枠6）。坑道から出発。
+const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto', 'sword'].includes(params.get('test')) ? params.get('test') : null;
 const SLOT = TEST ? `test-${TEST}` : undefined;
 const TICK_MS = 1000 / TICKS_PER_SEC;
 const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
@@ -44,7 +46,7 @@ function testState(mode) {
   if (mode === 'r3') return planAfterRegion2();
   if (mode === 'auto') return autoState();
   const s = createGame();
-  const upto = { open: 1, dojo: 2, line: 2, all: 3 }[mode];
+  const upto = { open: 1, dojo: 2, line: 2, all: 3, sword: 2 }[mode];
   for (let id = 1; id <= upto; id++) {
     s.cleared.push(id);
     for (const key of region(id).unlocks) {
@@ -57,6 +59,14 @@ function testState(mode) {
   s.hero.level = mode === 'all' ? 11 : 8;
   s.stock.forge = mode === 'all' ? { iron: 600, copper: 600, fire: 200, stone: 200 } : { iron: 150, copper: 60, fire: 40, stone: 30 };
   s.stock.workshop = mode === 'all' ? 300 : 60;
+  if (mode === 'sword') {
+    for (const n of SWORD_TREE) s.dojo.nodes[n.id] = { skill: 2 };
+    for (const id of ['renda', 'jujigiri', 'hanika']) s.dojo.nodes[id] = { skill: 6 };
+    s.dojo.nodes.tateuchi = { skill: 2 };
+    s.hero.level = 10;
+    s.nextRegion = 2;
+    Object.assign(s, restartRun(s)); // 坑道から出発し直す
+  }
   if (mode === 'line') {
     for (const id of ['kamae', 'uke', 'mikiri', 'hada', 'tategamae', 'kaeshi', 'tateuchi', 'fumikomi', 'kizu', 'ibuki', 'ukenagashi', 'seishin', 'tame', 'shingan']) s.dojo.nodes[id] = { skill: 2 };
     for (const id of ['tateuchi', 'tame', 'mikiri']) s.dojo.nodes[id] = { skill: 6 };
@@ -500,6 +510,7 @@ function renderFightLine(s) {
     if (s.tick < line.focusUntil) st.push('心眼');
     const f = run.fight;
     if (f && f.breakUntil > s.tick) st.push('敵：崩し');
+    if (f?.bleed > 0) st.push(`敵：出血${f.bleed}`);
     if (fightNotes.dodge) st.push(`かわした${fightNotes.dodge}`);
     if (fightNotes.parry) st.push(`返した${fightNotes.parry}`);
     if (st.length) parts.push(st.join('・'));
@@ -510,6 +521,7 @@ function renderFightLine(s) {
     if (f.shell) tr.push(`殻${Math.round(f.shell)}`);
     if (f.shieldMax) tr.push(`盾${f.shieldHits}/${f.shieldMax}`);
     if (f.regen) tr.push('回復');
+    if (f.swarm > 1) tr.push(`群れ${f.swarm}体`);
     if (tr.length) parts.push(`敵の性質：${tr.join('・')}`);
   }
   const text = parts.join('　');

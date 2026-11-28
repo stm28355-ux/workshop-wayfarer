@@ -1,15 +1,25 @@
-// 段3 道場：守りのスキルツリー・熟練・巻物を解く手・修行中の技。純粋な関数だけ。
+// 段3 道場：流派のスキルツリー（守り・剣）・熟練・巻物を解く手・修行中の技。純粋な関数だけ。
+// 守りの巻物はマインスイーパ（scroll.js）、剣の巻物はピクロス（nonogram.js）。判定表 第6回・第13回。
 // 状態は state.dojo = { nodes: { [節]: { skill } }, scroll: 解いている巻物 | null, drawn: 作った巻物の数 }。
 // 節の段は 熟練 ÷ 2（5段まで）。巻物を解くと熟練3、ミス1回につき −1（最低1）。判定表 第6回。
 
-import { GUARD_TREE, TECHS, SECOND_RULE, SCROLL_SIZES, SKILL, DISCIPLE, skillGain } from '../data/dojo.js';
+import { SECOND_RULE, SCROLL_SIZES, SKILL, DISCIPLE, skillGain } from '../data/dojo.js';
+import { ALL_NODES, ALL_TECHS, SCHOOLS } from '../data/schools.js';
+import { swordSpec } from '../data/sword.js';
 import { TICKS_PER_SEC } from '../data/balance.js';
 import { generate, numberAt, areaOf } from './scroll.js';
+import { generateNono } from './nonogram.js';
 
 export const LEVEL_MAX = 5;
 
 export function nodeOf(id) {
-  return GUARD_TREE.find((n) => n.id === id) ?? null;
+  return ALL_NODES.find((n) => n.id === id) ?? null;
+}
+
+// 流派が開いているか（地域のボスで school:<id> が開く。守りは道場と一緒）。
+export function schoolOpen(state, school) {
+  const u = state.open?.unlocks ?? [];
+  return u.includes(`school:${school}`) || (school === 'guard' && u.includes('stage:dojo'));
 }
 
 export function skillOf(state, id) {
@@ -23,15 +33,15 @@ export function levelOf(state, id) {
 // 節が開いているか（親が 1/5 以上）。
 export function isNodeOpen(state, id) {
   const n = nodeOf(id);
-  if (!n || n.locked) return false;
+  if (!n || n.locked || !schoolOpen(state, n.school)) return false;
   if (n.needsAny) return n.needsAny.of.filter((p) => levelOf(state, p) >= 1).length >= n.needsAny.n;
   return n.needs.every((p) => levelOf(state, p) >= 1);
 }
 
 // 小さい節の強さの合計（割合）。
 export function nodeStats(state) {
-  const out = { hp: 0, atk: 0, taken: 0, regen: 0, speed: 0 };
-  for (const n of GUARD_TREE) {
+  const out = { hp: 0, atk: 0, taken: 0, regen: 0, speed: 0, bleed: 0 };
+  for (const n of ALL_NODES) {
     if (!n.stat) continue;
     const lv = levelOf(state, n.id);
     for (const [k, v] of Object.entries(n.stat)) out[k] += v * lv;
@@ -41,6 +51,7 @@ export function nodeStats(state) {
 
 // 節 node の、今の段 level（0〜4）から次の段へ上がるための巻物の形（判定表 第6回 D4・第7回）。
 export function scrollSpec(node, level) {
+  if (node.school === 'sword') return swordSpec(node, level);
   const small = SCROLL_SIZES.small, large = SCROLL_SIZES.large;
   const size = (rules, big) => {
     const s = big ? large : small;
@@ -59,11 +70,11 @@ export function scrollSpec(node, level) {
   return { ...size([main[0], SECOND_RULE[main[0]]], true), maxLevel: 3, maxGlobal: 2 };
 }
 
-// この巻物で使える修行中の技 { 技: 回数 }。その節の技は「段＋1」回、ほかに覚えた守りの技は1回ずつ。
+// この巻物で使える修行中の技 { 技: 回数 }。その節の技は「段＋1」回、ほかに覚えた同じ流派の技は1回ずつ。
 export function techsFor(state, node, level) {
   const out = {};
-  for (const n of GUARD_TREE) {
-    if (!n.tech) continue;
+  for (const n of ALL_NODES) {
+    if (!n.tech || n.school !== node.school) continue;
     if (n.id === node.id) out[n.tech] = level + 1;
     else if (levelOf(state, n.id) >= 1) out[n.tech] = 1;
   }
@@ -95,7 +106,8 @@ export function scrollCheck(state, id) {
   const n = nodeOf(id);
   if (!n) return { ok: false, reason: 'ない節' };
   if (n.locked) return { ok: false, reason: n.locked };
-  if (!isNodeOpen(state, id)) return { ok: false, reason: '前の節を 1/5 にすると開く' };
+  if (!schoolOpen(state, n.school)) return { ok: false, reason: `${SCHOOLS[n.school].name}の流派はまだ開いていない` };
+  if (!isNodeOpen(state, id)) return { ok: false, reason: n.needsAny ? `${n.needsAny.of.map((x) => nodeOf(x).name).join('・')}のうち${n.needsAny.n}つを 1/5 にすると開く` : `${n.needs.map((x) => nodeOf(x).name).join('と')}を 1/5 にすると開く` };
   if (levelOf(state, id) >= LEVEL_MAX) return { ok: false, reason: 'もう 5/5' };
   if (state.dojo?.scroll) return { ok: false, reason: '解いている巻物がある' };
   return { ok: true };
@@ -110,7 +122,18 @@ export function startScroll(state, id) {
   const node = nodeOf(id);
   const level = levelOf(s, id);
   const spec = scrollSpec(node, level);
-  const no = GUARD_TREE.indexOf(node) + 1;
+  const no = ALL_NODES.indexOf(node) + 1;
+  if (spec.kind === 'nono') {
+    let g = null;
+    for (let k = 0; k < 5 && !g; k++) g = generateNono({ ...spec, seed: no * 100000 + level * 10000 + d.drawn * 10 + k });
+    if (!g) return { state, ok: false, reason: '巻物を作れなかった' };
+    d.drawn += 1;
+    d.scroll = {
+      kind: 'nono', node: id, level, puzzle: g.puzzle, paint: {}, xs: [], sureX: [], wrong: [], mistakes: 0,
+      techs: techsFor(s, node, level), guard: false, hints: [], done: false,
+    };
+    return { state: s, ok: true };
+  }
   let g = null;
   for (let k = 0; k < 5 && !g; k++) g = generate({ ...spec, seed: no * 100000 + level * 10000 + d.drawn * 10 + k });
   if (!g) return { state, ok: false, reason: '巻物を作れなかった' };
@@ -127,8 +150,15 @@ export function startScroll(state, id) {
 
 function finishIfDone(s, events) {
   const sc = s.dojo.scroll;
+  if (sc.kind === 'nono') { finishNonoIfDone(s, events); return; }
   const safe = sc.puzzle.mines.filter((m) => !m).length;
   if (sc.opened.length < safe) return;
+  finishScroll(s, events);
+}
+
+// 解けた：熟練を足し、人が解いた形を覚える。
+function finishScroll(s, events) {
+  const sc = s.dojo.scroll;
   const before = levelOf(s, sc.node);
   const gain = skillGain(sc.mistakes);
   const nd = s.dojo.nodes[sc.node] ?? { skill: 0 };
@@ -136,7 +166,7 @@ function finishIfDone(s, events) {
   const after = levelOf(s, sc.node);
   s.dojo.scroll = null;
   // 人が解いた形を覚える（門下生が解けるようになる。判定表 第11回 A2）
-  const shape = shapeKey(sc.puzzle);
+  const shape = shapeKey({ ...sc.puzzle, kind: sc.kind });
   if (!s.dojo.shapes) s.dojo.shapes = [];
   if (!s.dojo.shapes.includes(shape)) s.dojo.shapes.push(shape);
   s.stats.scrolls = (s.stats.scrolls ?? 0) + 1;
@@ -175,11 +205,18 @@ export function scrollFlag(state, i) {
 // 修行中の技を使う。
 export function scrollTech(state, tech, i) {
   const sc = state.dojo?.scroll;
-  if (!sc || !(sc.techs[tech] > 0) || !TECHS[tech]) return { state, ok: false };
+  if (!sc || !(sc.techs[tech] > 0) || !ALL_TECHS[tech]) return { state, ok: false };
   const s = clone(state);
   const t = s.dojo.scroll;
   const p = t.puzzle;
   const events = [];
+  if (t.kind === 'nono') {
+    if (!(i >= 0 && i < p.solution.length) || !nonoTech(t, tech, i)) return { state, ok: false };
+    t.techs[tech] -= 1;
+    events.push({ type: 'tech', tech });
+    finishIfDone(s, events);
+    return { state: s, ok: true, events };
+  }
   const markSure = (c) => { if (!t.sure.includes(c) && !t.wrong.includes(c)) t.sure.push(c); t.flags = t.flags.filter((j) => j !== c); };
   if (tech === 'ukenagashi') {
     if (t.guard) return { state, ok: false };
@@ -229,15 +266,17 @@ export function quitScroll(state) {
 
 // ───── 巻物の形（判定表 第11回 A2）：変えルールの組み合わせと盤の大きさ ─────
 
+// 剣の巻物（ピクロス）は頭に nono/ を付けて守りと分ける。
 export function shapeKey(spec) {
-  return `${[...(spec.rules ?? [])].sort().join('+') || 'base'}:${spec.w}x${spec.h}`;
+  return `${spec.kind === 'nono' ? 'nono/' : ''}${[...(spec.rules ?? [])].sort().join('+') || 'base'}:${spec.w}x${spec.h}`;
 }
 
-const RULE_NAMES = { cross: '十字', connect: '連結', pair: '組' };
+const RULE_NAMES = { cross: '十字', connect: '連結', pair: '組', color: '色', sum: '合計', mirror: '鏡' };
 export function shapeName(key) {
-  const [rules, size] = key.split(':');
+  const nono = key.startsWith('nono/');
+  const [rules, size] = key.replace('nono/', '').split(':');
   const r = rules === 'base' ? '土台' : rules.split('+').map((x) => RULE_NAMES[x] ?? x).join('＋');
-  return `${r} ${size.replace('x', '×')}`;
+  return `${nono ? '剣 ' : '守り '}${r} ${size.replace('x', '×')}`;
 }
 
 // 節 id の、今の段で解く巻物の形。
@@ -249,7 +288,7 @@ export function shapeOf(state, id) {
 // 前の版の保存から、人が解いた形を節の段で数える（段 L の節は 0〜L−1 段の巻物を解いている）。
 export function shapesFromLevels(state) {
   const out = [];
-  for (const n of GUARD_TREE) {
+  for (const n of ALL_NODES) {
     if (n.locked) continue;
     for (let lv = 0; lv < levelOf(state, n.id); lv++) {
       const k = shapeKey(scrollSpec(n, lv));
@@ -264,7 +303,9 @@ export function shapesFromLevels(state) {
 // 解けるのは人が手で一度解いた形だけ。選んだ枝の中で、開いていて段が一番低い節から（同じなら根に近い方）。
 // 人が解いている節は取らない（A5）。
 
-export const DISCIPLE_BRANCHES = Object.freeze(['all', '受け', '返し', '息吹']);
+// 枝の名前は流派をまたいで重ならない。根は同じ流派の枝を選んだときに入る。
+export const DISCIPLE_BRANCHES = Object.freeze(['all', '受け', '返し', '息吹', '速さ', '重さ', '刃']);
+const BRANCH_SCHOOL = { 受け: 'guard', 返し: 'guard', 息吹: 'guard', 速さ: 'sword', 重さ: 'sword', 刃: 'sword' };
 
 export function discipleTicks(state) {
   return Math.max(1, Math.round(DISCIPLE.everySec * TICKS_PER_SEC * DISCIPLE.speedMult ** (state.workshop?.disciple ?? 0)));
@@ -287,9 +328,9 @@ export function discipleTarget(state) {
   const shapes = d.shapes ?? [];
   const busy = d.scroll?.node ?? null;
   let best = null;
-  GUARD_TREE.forEach((n, order) => {
+  ALL_NODES.forEach((n, order) => {
     if (n.locked || n.id === busy) return;
-    if (branch !== 'all' && n.branch !== branch && n.branch !== '根') return;
+    if (branch !== 'all' && n.branch !== branch && !(n.branch === '根' && n.school === BRANCH_SCHOOL[branch])) return;
     if (!isNodeOpen(state, n.id)) return;
     const lv = levelOf(state, n.id);
     if (lv >= LEVEL_MAX) return;
@@ -337,4 +378,74 @@ export function setDiscipleBranch(state, branch) {
   const d = ensure(s);
   d.disciple = { ...(d.disciple ?? { node: null, cd: 0 }), branch, node: null, cd: 0 };
   return { state: s, ok: true };
+}
+
+// ───── 剣の巻物（ピクロス。判定表 第13回 B・第14回） ─────
+// 巻物の状態：{ kind: 'nono', node, level, puzzle, paint: { マス: 色 }, xs: [自分の×], sureX: [技で分かった塗らないマス],
+//              wrong: [ミスしたマス], mistakes, techs, hints: [{ tech, at, value }], done }
+
+function finishNonoIfDone(s, events) {
+  const sc = s.dojo.scroll;
+  const need = sc.puzzle.solution.filter((v) => v).length;
+  if (Object.keys(sc.paint).length < need) return;
+  finishScroll(s, events);
+}
+
+// 塗る（color：1＝赤・黒、2＝青）。答えと違えばミスで、そのマスは正しい形に直る。×のマスは塗れない（第14回 Q1）。
+export function scrollPaint(state, i, color = 1) {
+  const sc = state.dojo?.scroll;
+  if (!sc || sc.kind !== 'nono') return { state, ok: false };
+  const p = sc.puzzle;
+  if (!(i >= 0 && i < p.solution.length) || sc.paint[i] !== undefined || sc.wrong.includes(i) || sc.xs.includes(i) || sc.sureX.includes(i)) return { state, ok: false };
+  const s = clone(state);
+  const t = s.dojo.scroll;
+  const events = [];
+  if (p.solution[i] === color) {
+    t.paint[i] = color;
+  } else {
+    t.wrong.push(i);
+    if (p.solution[i]) t.paint[i] = p.solution[i];
+    if (t.guard) { t.guard = false; events.push({ type: 'parry' }); } else { t.mistakes += 1; events.push({ type: 'miss' }); }
+  }
+  finishNonoIfDone(s, events);
+  return { state: s, ok: true, events };
+}
+
+// ×（自分用の印）を付ける・外す。on を省くと切り替え。
+export function scrollMark(state, i, on) {
+  const sc = state.dojo?.scroll;
+  if (!sc || sc.kind !== 'nono') return { state, ok: false };
+  if (sc.paint[i] !== undefined || sc.wrong.includes(i) || sc.sureX.includes(i)) return { state, ok: false };
+  const has = sc.xs.includes(i);
+  const want = on ?? !has;
+  if (want === has) return { state, ok: false };
+  const s = clone(state);
+  const t = s.dojo.scroll;
+  t.xs = want ? [...t.xs, i] : t.xs.filter((j) => j !== i);
+  return { state: s, ok: true };
+}
+
+// 剣の修行中の技：マスの答えを見せる（塗るマスは塗り、塗らないマスは確かな×）か、数を見せる。
+function nonoTech(t, tech, i) {
+  const p = t.puzzle;
+  const x = i % p.w, y = Math.floor(i / p.w);
+  const cellsAt = (list) => list.filter(([cx, cy]) => cx >= 0 && cy >= 0 && cx < p.w && cy < p.h).map(([cx, cy]) => cy * p.w + cx);
+  const reveal = (cells) => {
+    for (const c of cells) {
+      if (t.paint[c] !== undefined || t.wrong.includes(c)) continue;
+      t.xs = t.xs.filter((j) => j !== c);
+      if (p.solution[c]) t.paint[c] = p.solution[c];
+      else if (!t.sureX.includes(c)) t.sureX.push(c);
+    }
+  };
+  if (tech === 'renda') reveal(cellsAt([[x, y], [x + 1, y], [x + 2, y]]));
+  else if (tech === 'jujigiri') reveal(cellsAt([[x, y], [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]));
+  else if (tech === 'issen') reveal(cellsAt(Array.from({ length: p.w }, (_, k) => [k, y])));
+  else if (tech === 'kenjun') reveal(cellsAt([[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]]));
+  else if (tech === 'shukketsu') {
+    const around = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) around.push([x + dx, y + dy]);
+    t.hints.push({ tech, at: i, value: cellsAt(around).filter((c) => p.solution[c]).length });
+  } else return false;
+  return true;
 }

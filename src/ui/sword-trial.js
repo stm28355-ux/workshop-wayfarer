@@ -40,11 +40,11 @@ function clock(ms) {
 
 // ───── 手 ─────
 // 塗る。答えと違えばミスで、そのマスは正しい形（×か正しい色）に直る。
+// ×を付けたマスは塗れない（判定表 第14回 Q1）。塗るなら先に×を外す。
 function paint(i, color) {
   const { p } = puzzles[cur];
   const r = rec();
-  if (r.done || r.paint[i] !== undefined || r.wrong.includes(i)) return;
-  r.xs = r.xs.filter((j) => j !== i);
+  if (r.done || r.paint[i] !== undefined || r.wrong.includes(i) || r.xs.includes(i)) return;
   if (p.solution[i] === color) {
     r.paint[i] = color;
   } else {

@@ -196,12 +196,13 @@ function startFight(s, boss) {
   const e = boss ? { ...region(run.region).boss, traits: region(run.region).boss.traits ?? region(run.region).enemy.traits ?? null } : enemyAt(run.region, run.enemyIndex);
   const hits = e.hits ?? 1;
   const enemyTicks = Math.max(1, Math.round(TICKS_PER_SEC / hits));
-  run.fight = { boss, hp: e.hp, maxHp: e.hp, atk: e.atk, enemyTicks, heroCd: 1, enemyCd: enemyTicks, breakUntil: -1, shell: 0, shieldHits: 0 };
+  run.fight = { boss, hp: e.hp, maxHp: e.hp, atk: e.atk, enemyTicks, heroCd: 1, enemyCd: enemyTicks, breakUntil: -1, shell: 0, shieldHits: 0, start: s.tick, bleed: 0 };
   // 敵の性質（判定表 第9回 C2）：殻・盾・回復
   const t = e.traits;
   if (t?.shell) run.fight.shell = t.shell;
   if (t?.shield) Object.assign(run.fight, { shieldHits: t.shield, shieldMax: t.shield, shieldEvery: t.shieldSec * TICKS_PER_SEC, shieldCd: t.shieldSec * TICKS_PER_SEC });
   if (t?.regenPct) run.fight.regen = (e.hp * t.regenPct) / TICKS_PER_SEC;
+  if (t?.swarm) run.fight.swarm = t.swarm; // 群れ（判定表 第13回 C5）：範囲の技は全員に当たる
 }
 
 function winFight(s, events) {
