@@ -553,7 +553,7 @@ function render(now) {
   const { atk, maxHp, attackTicks } = heroStats(s);
 
   renderRegions();
-  $('region-note').textContent = s.nextRegion !== run.region ? `次の出発から ${region(s.nextRegion).name}（「帰る」ですぐ）` : '';
+  $('region-note').textContent = s.nextRegion !== run.region ? `次は ${region(s.nextRegion).name}` : '';
   $('hero-level').textContent = `勇者 Lv${s.hero.level}　攻撃${Math.round(atk)}${attackTicks !== 10 ? `（${intervalText(attackTicks, TICKS_PER_SEC)}秒に1回）` : ''}`;
   setBar('hp-bar', run.hp / maxHp);
   $('hp-text').textContent = `${Math.max(0, Math.min(Math.round(maxHp), Math.ceil(run.hp)))}/${Math.round(maxHp)}`;
@@ -693,14 +693,17 @@ function renderFightLine(s) {
     if (st.length) parts.push(st.join('・'));
   }
   const f = run.fight;
+  let traits = '';
   if (f) {
     const tr = [];
     if (f.shell) tr.push(`殻${Math.round(f.shell)}`);
     if (f.shieldMax) tr.push(`盾${f.shieldHits}/${f.shieldMax}`);
     if (f.regen) tr.push('回復');
     if (f.swarm > 1) tr.push(`群れ${f.swarm}体`);
-    if (tr.length) parts.push(`敵の性質：${tr.join('・')}`);
+    traits = tr.length ? `性質：${tr.join('・')}` : '';
   }
+  // 敵の性質は戦いの絵の敵の名前の下へ（判定表 第26回 Q2：出たときに画面が動かないように）
+  if ($('foe-traits').textContent !== traits) $('foe-traits').textContent = traits;
   const text = parts.join('　');
   if ($('fight-line').textContent !== text) $('fight-line').textContent = text;
 }

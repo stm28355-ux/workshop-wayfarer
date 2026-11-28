@@ -52,7 +52,7 @@ button { font: inherit; color: inherit; }
   .band .log li { white-space: normal; overflow: visible; }
 }
 /* 地域の選び箱は白地に黒い文字（第25回 Q4） */
-.hero-panel .region select { background: #f4f1ea; color: #1b1f26; font-weight: 600; min-width: 8em; border-color: #c9c2b4; }
+.hero-panel .region select { background: #f4f1ea; color: #1b1f26; font-weight: 600; min-width: 6.5em; border-color: #c9c2b4; }
 .region-row { gap: 8px; min-height: 0; }
 #region-note:empty { display: none; }
 .hero-panel { display: grid; gap: 6px; align-content: start; }
@@ -126,7 +126,8 @@ button { font: inherit; color: inherit; }
   .stage { grid-template-columns: minmax(0, 440px) minmax(0, 1fr); align-items: start; }
   .stage .board-side { grid-column: 1; grid-row: 1; }
   .stage .exit-side { grid-column: 1; grid-row: 2; }
-  .stage .forge-side, .stage .dojo-side { grid-column: 2; grid-row: 1 / span 2; }
+  .stage { grid-template-rows: auto auto 1fr; }
+  .stage .forge-side, .stage .dojo-side { grid-column: 2; grid-row: 1 / span 3; }
 }
 @media (min-width: 1200px) {
   /* PC：盤・打ち分け・出口を横に並べる（判定表 第3回 F1） */
@@ -455,7 +456,11 @@ dialog li { margin-bottom: 6px; }
 .tl.skip { opacity: 0.6; }
 .tl.recast { border-style: dashed; }
 .timeline .arrow { color: var(--quiet); }
-.fight-line { font-size: 0.8rem; color: var(--quiet); min-height: 1.4em; }
+/* 並びの行は高さを決めておく（中身が変わっても画面が動かないように。第26回 Q2） */
+.fight-line { font-size: 0.8rem; color: var(--quiet); height: 4.2em; overflow: hidden; line-height: 1.4; }
+.region-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.foe-traits { font-size: 0.75rem; color: #f2c76e; }
+.foe-traits:empty { display: none; }
 .card-ghost {
   position: fixed; left: 0; top: 0; z-index: 20; pointer-events: none; padding: 8px 12px; border-radius: 8px;
   background: var(--panel); border: 1px solid var(--accent); font-weight: 700; font-size: 0.9rem; opacity: 0.95;
