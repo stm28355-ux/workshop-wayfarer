@@ -20,12 +20,8 @@
 <main id="app">
   <section class="band" data-ui="adventure" aria-label="冒険">
     <div class="hero-panel">
-      <div class="row hero-row">
-        <label class="region">地域
-          <select id="region" data-act="region"></select>
-        </label>
-        <span id="region-note" class="quiet"></span>
-      </div>
+      <div class="regions" id="region" role="group" aria-label="地域"></div>
+      <p id="region-note" class="quiet small"></p>
       <p id="hero-level" class="strong"></p>
       <div class="meter-row"><span class="label">HP</span><span class="meter hp"><span id="hp-bar"></span></span><span id="hp-text" class="num"></span></div>
       <div class="meter-row"><span class="label">旅支度</span><span class="meter prep"><span id="prep-bar"></span></span><span id="prep-text" class="num"></span></div>

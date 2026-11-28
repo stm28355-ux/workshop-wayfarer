@@ -159,7 +159,9 @@ export function createForgeUI({ get, set, log }) {
       const v = stockOf(s, k);
       const can = GEAR_KINDS[k] && !s.forge.session;
       const sel = ui.kind === k && !s.forge.session ? ' sel' : '';
-      return `<button type="button" class="chip${sel}" data-act="kind" data-kind="${k}" ${can ? '' : 'disabled'} style="--c:${KINDS[k].color}">` +
+      // 押せないときは理由を出す（判定表 第24回 U2）
+      const why = can ? '' : s.forge.session ? ' title="打っている間は素材を変えられない"' : ' title="この素材から打てる物はない（打ち分けの燃料になる）"';
+      return `<button type="button" class="chip${sel}" data-act="kind" data-kind="${k}" ${can ? '' : 'disabled'}${why} style="--c:${KINDS[k].color}">` +
         `${materialArt(k, 22)} ${KINDS[k].name}<span class="num">${v}</span></button>`;
     }).join('');
   }

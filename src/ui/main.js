@@ -445,8 +445,10 @@ function markHover(x, y) {
   hoverEl?.classList.add('hover');
 }
 
-$('region').addEventListener('change', (e) => {
-  const r = chooseRegion(state, Number(e.target.value));
+$('region').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-region]');
+  if (!b) return;
+  const r = chooseRegion(state, Number(b.dataset.region));
   if (r.ok) state = r.state;
 });
 $('btn-pause').addEventListener('click', () => {
@@ -523,11 +525,11 @@ function renderExits() {
 }
 
 function renderRegions() {
-  const sel = $('region');
+  const box = $('region');
   const key = state.open.regions.join(',') + '|' + state.nextRegion;
-  if (sel.dataset.key === key) return;
-  sel.dataset.key = key;
-  sel.innerHTML = state.open.regions.map((id) => `<option value="${id}"${id === state.nextRegion ? ' selected' : ''}>${id} ${region(id).name}</option>`).join('');
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  box.innerHTML = state.open.regions.map((id) => `<button type="button" class="region-btn" data-region="${id}" aria-pressed="${id === state.nextRegion}">${region(id).name}</button>`).join('');
 }
 
 function setBar(id, ratio) {
@@ -546,7 +548,7 @@ function render(now) {
   const { atk, maxHp, attackTicks } = heroStats(s);
 
   renderRegions();
-  $('region-note').textContent = s.nextRegion !== run.region ? `（次は ${region(s.nextRegion).name}）` : '';
+  $('region-note').textContent = s.nextRegion !== run.region ? `次の出発から ${region(s.nextRegion).name}` : '';
   $('hero-level').textContent = `勇者 Lv${s.hero.level}　攻撃${Math.round(atk)}${attackTicks !== 10 ? `（${intervalText(attackTicks, TICKS_PER_SEC)}秒に1回）` : ''}`;
   setBar('hp-bar', run.hp / maxHp);
   $('hp-text').textContent = `HP ${Math.max(0, Math.ceil(run.hp))}/${Math.round(maxHp)}`;
@@ -654,14 +656,10 @@ function renderScene(s) {
   if (f && lastFoeHp !== null && f.hp < lastFoeHp) {
     fxHeld += lastFoeHp - f.hp;
     const now = performance.now();
-    if (now - fxAt > 220 && fxHeld >= 1) {
+    if (now - fxAt > 450 && fxHeld >= 1) {
       spawnFx(String(Math.round(fxHeld)));
       fxHeld = 0;
       fxAt = now;
-      const en = $('scene-enemy');
-      en.classList.remove('hit');
-      void en.offsetWidth;
-      en.classList.add('hit');
     }
   }
   lastFoeHp = f ? f.hp : null;
