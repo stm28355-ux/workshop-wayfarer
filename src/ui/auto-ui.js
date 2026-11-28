@@ -8,7 +8,7 @@ import { PLAN, planOfRegion } from '../core/plan.js';
 import { TICKS_PER_SEC, SPLIT, EXITS } from '../data/balance.js';
 
 const $ = (id) => document.getElementById(id);
-const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
+const EXIT_NAMES = { prep: '旅支度', grow: '鍛錬', forge: '鍛冶の材料', workshop: '工房' };
 // 門下生の枝の呼び名。all 以外は枝の名前そのまま（流派を足しても undefined にならないように）
 const BRANCH_NAMES = { all: '全部' };
 // 帳簿の木人：地域の壁に合わせる
@@ -39,7 +39,7 @@ export function createAutoUI({ get, set, log }) {
     lastSplit = key;
     const total = EXITS.reduce((a, x) => a + sp.fed[x], 0);
     el.innerHTML = `<h3>振り分け <button type="button" class="mini" data-sact="on" aria-pressed="${sp.on}">${sp.on ? '動いている（止める）' : '止めている（動かす）'}</button></h3>` +
-      `<p class="small quiet">ランク${sp.minRank}以上の物を${SPLIT.everyTicks / TICKS_PER_SEC}秒に1個、割合に一番足りない出口へ。` +
+      `<p class="small quiet">ランク${sp.minRank}以上の物を${SPLIT.everyTicks / TICKS_PER_SEC}秒に1個、割合に一番足りない使い道へ。` +
       ` <span class="nowrap">出すランク <button type="button" class="mini" data-sact="rank" data-dir="-1" aria-label="出すランクを下げる">−</button> <b class="num">${sp.minRank}</b> <button type="button" class="mini" data-sact="rank" data-dir="1" aria-label="出すランクを上げる">＋</button></span></p>` +
       '<div class="split-rows">' +
       rows.map(([x, r, op, fed]) => `<div class="split-row${op ? '' : ' locked'}"><span>${EXIT_NAMES[x]}</span>` +
@@ -140,7 +140,7 @@ export function createAutoUI({ get, set, log }) {
     const hs = heroStats(s);
     h += `<p class="small quiet">勇者：攻撃 ${Math.round(hs.atk)}・HP ${Math.round(hs.maxHp)}${hs.guard ? `・盾 ${Math.round(hs.guard * 10) / 10}` : ''}　魔王までの目安 ${minText(PLAN[PLAN.length - 1].min)}</p>`;
     // 地域ごと
-    h += '<h3>地域ごと</h3><table class="ledger-table"><thead><tr><th>地域</th><th>出発</th><th>支度切れ</th><th>倒れた</th><th>ボスを倒した</th></tr></thead><tbody>';
+    h += '<h3>地域ごと</h3><table class="ledger-table"><thead><tr><th>地域</th><th>出発</th><th>旅支度切れ</th><th>倒れた</th><th>ボスを倒した</th></tr></thead><tbody>';
     for (const id of s.open.regions) {
       const r = st.byRegion?.[id];
       if (!r) continue;
@@ -151,7 +151,7 @@ export function createAutoUI({ get, set, log }) {
     const fed = st.fed;
     if (fed) {
       const past = fed.past ?? [];
-      h += `<h3>出口に入れた価値</h3><table class="ledger-table"><thead><tr><th>出口</th><th>手</th><th>振り分け</th><th>あふれ</th><th>${past.length ? `直近${past.length}分の毎分` : '毎分（1分たつと出る）'}</th></tr></thead><tbody>`;
+      h += `<h3>使い道に入れた価値</h3><table class="ledger-table"><thead><tr><th>使い道</th><th>手</th><th>振り分け</th><th>あふれ</th><th>${past.length ? `直近${past.length}分の毎分` : '毎分（1分たつと出る）'}</th></tr></thead><tbody>`;
       for (const x of EXITS) {
         if (!s.open.exits.includes(x)) continue;
         const per = past.length ? Math.round(past.reduce((a, m) => a + (m[x] ?? 0), 0) / past.length) : '―';
@@ -163,7 +163,7 @@ export function createAutoUI({ get, set, log }) {
     const rows = [];
     if (isOpen(s, 'stage:forge')) rows.push(['打った', `手 ${(st.crafted ?? 0) - (st.autoCrafted ?? 0)}回（会心 ${st.crits ?? 0}）・職人 ${st.autoCrafted ?? 0}回`]);
     if (isOpen(s, 'stage:dojo')) rows.push(['解いた巻物', `手 ${st.scrolls ?? 0}枚・門下生 ${st.discipleScrolls ?? 0}枚`]);
-    rows.push(['合わせた', `手 ${st.merges}回・職人 ${st.crafterMerges}回`]);
+    rows.push(['まとめた', `手 ${st.merges}回・職人 ${st.crafterMerges}回`]);
     rows.push(['拾った', `${st.picked}個（あふれ ${st.overflow}個）`]);
     h += '<h3>手と職人</h3><dl class="ledger-dl">' + rows.map(([k, v]) => `<div><dt>${k}</dt><dd class="num">${v}</dd></div>`).join('') + '</dl>';
     return h;

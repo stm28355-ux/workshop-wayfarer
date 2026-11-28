@@ -395,6 +395,35 @@ export function createDojoUI({ get, set, log }) {
     if (key === lastKey) return;
     lastKey = key;
     $('dojo-body').innerHTML = s.dojo.scroll ? scrollHtml(s) : viewTabs() + (ui.view === 'line' ? lineHtml(s) : treeHtml(s));
+    if (!s.dojo.scroll && ui.view !== 'line') drawTreeLines(s);
+  }
+
+  // 樹形図の線：同じ流派の親 → 子。奥義の「3つのうち2つ」は点線。別の流派の親は線を引かない（節の説明に出る）。
+  function drawTreeLines(s) {
+    const wrap = side.querySelector('.tree-wrap');
+    const svg = wrap?.querySelector('.tree-lines');
+    if (!wrap || !svg) return;
+    const box = wrap.querySelector('.tree2').getBoundingClientRect();
+    svg.setAttribute('width', box.width);
+    svg.setAttribute('height', box.height);
+    svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+    const at = (id) => wrap.querySelector(`[data-node="${id}"]`)?.getBoundingClientRect();
+    let lines = '';
+    for (const n of SCHOOLS[ui.school].tree) {
+      const parents = n.needsAny ? n.needsAny.of : n.needs;
+      const c = at(n.id);
+      if (!c) continue;
+      for (const pid of parents) {
+        const p = at(pid);
+        if (!p) continue; // 別の流派
+        const x1 = p.right - box.left, y1 = p.top + p.height / 2 - box.top;
+        const x2 = c.left - box.left, y2 = c.top + c.height / 2 - box.top;
+        const mx = (x1 + x2) / 2;
+        const on = levelOf(s, pid) >= (n.needsAny?.level ?? 1);
+        lines += `<path d="M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}" class="${on ? 'on' : ''}${n.needsAny ? ' any' : ''}"/>`;
+      }
+    }
+    svg.innerHTML = lines;
   }
 
   function schoolTabs(s) {
@@ -410,29 +439,36 @@ export function createDojoUI({ get, set, log }) {
     if (nodeOf(ui.node)?.school !== ui.school) ui.node = firstOf(ui.school);
     const t = nodeStats(s);
     const parts = Object.entries(t).filter(([, v]) => v > 0).map(([k, v]) => `${STAT[k]}${pct(v)}`);
-    const WHAT = { guard: '守りの流派（巻物は罠の推理）', sword: '剣の流派（巻物はピクロス）', magic: '魔法の流派（巻物は属性の数独）', bow: '弓の流派（巻物は鏡で光を通す）', summon: '召喚の流派（巻物は部屋分け）', stealth: '隠密の流派（巻物は灯りを置く）' };
+    // かっこ書きの説明は遊び方へ（判定表 第23回の一言）
+    const WHAT = { guard: '守りの流派', sword: '剣の流派', magic: '魔法の流派', bow: '弓の流派', summon: '召喚の流派', stealth: '隠密の流派' };
     const what = WHAT[ui.school];
-    let h = schoolTabs(s) + `<p class="small">${what}。巻物を解くと熟練が入り、熟練${SKILL.perLevel}で節が1段上がる（解くと${3}、ミス1回につき −1）。<br>小さい節の強さ（流派の合計）：${parts.length ? parts.join('・') : 'まだない'}</p>`;
+    let h = schoolTabs(s) + `<p class="small">${what}。巻物を解くと熟練が入り、熟練${SKILL.perLevel}で節が1段上がる。<br>小さい節の強さ：${parts.length ? parts.join('・') : 'まだない'}</p>`;
     if (ui.last) {
       const n = nodeOf(ui.last.node);
       h += `<p class="result">${n.name}：熟練＋${ui.last.gain}${ui.last.to > ui.last.from ? `、${ui.last.to}/5 に上がった` : ''}</p>`;
     }
-    h += '<div class="tree">';
-    for (const br of school.branches) {
-      h += `<div class="branch"><span class="branch-name">${br}</span><div class="branch-nodes">`;
-      for (const n of school.tree.filter((x) => x.branch === br)) {
-        const lv = levelOf(s, n.id);
-        const op = isNodeOpen(s, n.id);
-        const pips = '●'.repeat(lv) + '○'.repeat(LEVEL_MAX - lv);
-        const cls = ['node', `k-${n.kind}`];
-        if (!op) cls.push('closed');
-        if (ui.node === n.id) cls.push('sel');
-        h += `<button type="button" class="${cls.join(' ')}" data-dact="node" data-node="${n.id}" aria-pressed="${ui.node === n.id}">` +
-          `<span class="node-name">${n.name}<small>${KIND[n.kind]}</small></span><span class="pips">${pips}</span></button>`;
-      }
-      h += '</div></div>';
-    }
-    h += '</div>';
+    // 樹形図（Issue #8）：左に根、3本の枝を右へ、右の端に奥義と合流。親子の線はあとで描く（drawTreeLines）
+    const nodeBtn = (n, row, col, span = 1) => {
+      const lv = levelOf(s, n.id);
+      const op = isNodeOpen(s, n.id);
+      const pips = '●'.repeat(lv) + '○'.repeat(LEVEL_MAX - lv);
+      const cls = ['node', `k-${n.kind}`];
+      if (!op) cls.push('closed');
+      if (ui.node === n.id) cls.push('sel');
+      return `<button type="button" class="${cls.join(' ')}" data-dact="node" data-node="${n.id}" aria-pressed="${ui.node === n.id}" style="grid-row:${row} / span ${span};grid-column:${col}">` +
+        `<span class="node-name">${n.name}<small>${KIND[n.kind]}</small></span><span class="pips">${pips}</span></button>`;
+    };
+    const branches = school.branches.filter((b) => b !== '根' && b !== '奥');
+    h += '<div class="tree-wrap"><div class="tree2">';
+    const root = school.tree.find((x) => x.branch === '根');
+    if (root) h += nodeBtn(root, 1, 1, branches.length);
+    branches.forEach((br, bi) => {
+      h += `<span class="tree-branch" style="grid-row:${bi + 1};grid-column:2">${br}</span>`;
+      school.tree.filter((x) => x.branch === br).forEach((n, k) => { h += nodeBtn(n, bi + 1, k + 3); });
+    });
+    const ends = school.tree.filter((x) => x.branch === '奥');
+    ends.forEach((n, k) => { h += ends.length === 1 ? nodeBtn(n, 1, 7, branches.length) : nodeBtn(n, k === 0 ? 1 : branches.length, 7, k === 0 ? branches.length - 1 : 1); });
+    h += '</div><svg class="tree-lines" aria-hidden="true"></svg></div>';
     // 選んだ節
     const n = nodeOf(ui.node);
     const lv = levelOf(s, n.id);
@@ -689,7 +725,7 @@ export function createDojoUI({ get, set, log }) {
     }
     // 持っている札
     h += '<h3>持っている札</h3>';
-    if (!cards.length) h += '<p class="quiet small">まだない。道場が開くと強斬り、守りの節を 1/5 にするとその札が使える。</p>';
+    if (!cards.length) h += '<p class="quiet small">まだない。修練場が開くと強斬り、守りの節を 1/5 にするとその札が使える。</p>';
     h += '<div class="hand">' + cards.map((id) => {
       const c = CARDS[id];
       const lv = cardLevel(s, id);

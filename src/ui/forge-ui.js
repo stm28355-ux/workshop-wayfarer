@@ -8,6 +8,7 @@ import { planOf, mainValue, heroStats, itemKey, baseOf, statOf, intervalText, cr
 import { preview, canStrike, canFire, score, cellQuality, strikeAmount, hasTool, strikesLeft, targetSeen, LONG_HEAT } from '../core/forge.js';
 import { GEAR, SLOTS, STRIKES, TEMPS, GEAR_KINDS, gearCost, bandOf } from '../data/forge.js';
 import { KINDS, WORKSHOP, TICKS_PER_SEC } from '../data/balance.js';
+import { materialArt, gearArt } from '../art/sprites.js';
 import { discipleTicks } from '../core/dojo.js';
 
 const $ = (id) => document.getElementById(id);
@@ -159,7 +160,7 @@ export function createForgeUI({ get, set, log }) {
       const can = GEAR_KINDS[k] && !s.forge.session;
       const sel = ui.kind === k && !s.forge.session ? ' sel' : '';
       return `<button type="button" class="chip${sel}" data-act="kind" data-kind="${k}" ${can ? '' : 'disabled'} style="--c:${KINDS[k].color}">` +
-        `<b>${KINDS[k].mark}</b> ${KINDS[k].name}<span class="num">${v}</span></button>`;
+        `${materialArt(k, 22)} ${KINDS[k].name}<span class="num">${v}</span></button>`;
     }).join('');
   }
 
@@ -172,9 +173,9 @@ export function createForgeUI({ get, set, log }) {
       const modeName = { new: '初めて', up: '格上げ', add: '加算' };
       h += '<div class="step can-list"><span class="step-name">今打てる物</span>' + can.map((c) =>
         `<button type="button" class="opt${ui.kind === c.kind && ui.slot === c.slot && ui.tier === c.tier ? ' sel' : ''}" data-act="pick" data-kind="${c.kind}" data-slot="${c.slot}" data-tier="${c.tier}">` +
-        `${gearName(c.kind, c.slot)}<small>格${c.tier}・${modeName[c.mode] ?? ''}</small></button>`).join('') + '</div>';
+        `<span class="gear-art">${gearArt(c.kind, c.slot, 20)}</span>${gearName(c.kind, c.slot)}<small>格${c.tier}・${modeName[c.mode] ?? ''}</small></button>`).join('') + '</div>';
     }
-    if (!ui.kind) return h + '<p class="quiet">素材を選ぶ（装備作りの出口に入れた物）。</p>';
+    if (!ui.kind) return h + '<p class="quiet">素材を選ぶ。</p>';
     const slots = slotsOf(ui.kind);
     h += '<div class="step"><span class="step-name">作る物</span>' + slots.map((sl) => {
       const it = s.gear.items[itemKey(ui.kind, sl)];
@@ -197,7 +198,7 @@ export function createForgeUI({ get, set, log }) {
     const pow = fuelPower(ui.fuel);
     const shards = Object.keys(KINDS).filter((k) => KINDS[k].group === 'shard' && (stockOf(s, k) > 0 || ui.fuel[k]));
     h += '<div class="step fuel"><span class="step-name">燃料</span>';
-    if (shards.length === 0) h += '<span class="quiet">欠片を装備作りの出口に入れる</span>';
+    if (shards.length === 0) h += '<span class="quiet">欠片を使い道「鍛冶の材料」に入れる</span>';
     for (const k of shards) {
       const room = stockOf(s, k) - (k === ui.kind ? gearCost(ui.tier) : 0);
       h += `<span class="fuel-row"><span>${KINDS[k].name}</span>` +
@@ -291,7 +292,6 @@ export function createForgeUI({ get, set, log }) {
     let h = '<h3>装備</h3>';
     h += `<p class="num small">攻撃 ${r1(st.atk)}（${intervalText(st.attackTicks, TICKS_PER_SEC)}秒に1回）　HP ${Math.round(st.maxHp)}${st.guard ? `　受けるダメージ−${r1(st.guard)}` : ''}</p>`;
     if (items.length === 0) return h + '<p class="quiet small">まだ何も打っていない。</p>';
-    h += '<p class="quiet small">下の数値はレベルの倍率がかかる前（上の合計はかかった後）。</p>';
     for (const slot of ['weapon', 'armor']) {
       const mine = items.filter(([, it]) => it.slot === slot);
       if (mine.length === 0) continue;
@@ -301,9 +301,9 @@ export function createForgeUI({ get, set, log }) {
       }).join('') + '</div>';
     }
     const acc = items.filter(([, it]) => it.slot === 'accessory');
-    if (acc.length) h += '<div class="gear-row"><span class="step-name">アクセサリー（全部効く）</span>' + acc.map(([, it]) => `<span class="opt static">${itemLine(it)}</span>`).join('') + '</div>';
+    if (acc.length) h += '<div class="gear-row"><span class="step-name">アクセサリー</span>' + acc.map(([, it]) => `<span class="opt static">${itemLine(it)}</span>`).join('') + '</div>';
     if (isOpen(s, 'crafter:forge')) {
-      h += `<p class="small">打ち分けの職人：<button type="button" class="mini wide" data-act="auto" aria-pressed="${s.forge.auto}">${s.forge.auto ? '打っている（止める）' : '止めている（打たせる）'}</button>` +
+      h += `<p class="small">鍛冶職人：<button type="button" class="mini wide" data-act="auto" aria-pressed="${s.forge.auto}">${s.forge.auto ? '打っている（止める）' : '止めている（打たせる）'}</button>` +
         `<br><span class="quiet">装備中の武器・防具とアクセサリーを、手で出した一番の手順で順に打つ（10秒に1回）。</span></p>`;
     }
     return h;
@@ -312,7 +312,7 @@ export function createForgeUI({ get, set, log }) {
   function itemLine(it) {
     const stat = statOf(it.kind, it.slot);
     const adds = Object.entries(it.adds).map(([t, n]) => `格${t} ${n}/${GEAR.addCap}`).join('・');
-    return `${gearName(it.kind, it.slot)} 格${it.tier}<small>${statText(stat, mainValue(it))}${adds ? `・加算 ${adds}` : ''}</small>`;
+    return `<span class="gear-art">${gearArt(it.kind, it.slot, 20)}</span>${gearName(it.kind, it.slot)} 格${it.tier}<small>${statText(stat, mainValue(it))}${adds ? `・加算 ${adds}` : ''}</small>`;
   }
 
   let lastShop = '';
@@ -331,7 +331,7 @@ export function createForgeUI({ get, set, log }) {
       if (w === 'disciple') { const now = discipleTicks(s); what = `${r1(now / TICKS_PER_SEC)}秒 → ${r1(Math.max(1, Math.round(now * 0.8)) / TICKS_PER_SEC)}秒`; }
       return [w, c.ok, c.cost ?? '', what, c.ok ? '' : c.reason];
     });
-    const crafter = isOpen(s, 'crafter:merge') ? `マージの職人：${r1(mergeCrafterTicks(s) / TICKS_PER_SEC)}秒に1回、ランク${mergeCrafterRank(s)}までを合わせる` : 'マージの職人は地域2のボスで来る';
+    const crafter = isOpen(s, 'crafter:merge') ? `まとめ職人：${r1(mergeCrafterTicks(s) / TICKS_PER_SEC)}秒に1回、ランク${mergeCrafterRank(s)}までを合わせる` : 'まとめ職人は地域2のボスで来る';
     const wait = isOpen(s, 'crafter:merge') ? !!s.crafter.wait5 : null;
     const key = JSON.stringify([s.stock.workshop, rows, crafter, wait]);
     if (key === lastShop) return;
@@ -340,7 +340,7 @@ export function createForgeUI({ get, set, log }) {
       rows.map(([w, ok, cost, what, why]) => `<button type="button" class="opt shop" data-act="upgrade" data-what="${w}" ${ok ? '' : 'disabled'} title="${why}">` +
         `${WORKSHOP[w].name}<small class="num">${what}</small><small class="num">${cost ? `費用 ${cost}` : why}</small></button>`).join('') +
       `<p class="quiet small">${crafter}</p>` +
-      (wait === null ? '' : `<p class="small"><button type="button" class="mini wide" data-act="wait5" aria-pressed="${wait}">5個を待つ：${wait ? '入' : '切'}</button> <span class="quiet">入にすると5個そろうまで合わせない（空きが2マス以下なら3個でも）</span></p>`);
+      (wait === null ? '' : `<p class="small"><button type="button" class="mini wide" data-act="wait5" aria-pressed="${wait}">5個を待つ：${wait ? '入' : '切'}</button> <span class="quiet">入にすると5個そろうまでまとめない（空きが2マス以下なら3個でも）</span></p>`);
   }
 
   return { render, ui };

@@ -119,7 +119,7 @@ function openArea(p, opened, start) {
 }
 
 export function scrollCheck(state, id) {
-  if (!state.open.unlocks.includes('stage:dojo')) return { ok: false, reason: '道場は地域2のボスを倒すと開く' };
+  if (!state.open.unlocks.includes('stage:dojo')) return { ok: false, reason: '修練場は地域2のボスを倒すと開く' };
   const n = nodeOf(id);
   if (!n) return { ok: false, reason: 'ない節' };
   if (n.locked) return { ok: false, reason: n.locked };
