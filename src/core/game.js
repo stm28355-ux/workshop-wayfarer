@@ -10,9 +10,10 @@ import { gainXp } from './hero.js';
 import { heroStats, damageTaken, planOf, applyCraft, itemKey } from './gear.js';
 import { crafterMerge } from './crafter.js';
 import * as forge from './forge.js';
+import { activeCards, levelsOf, recastTicks, newLine, heroAct, enemyAct, tickFight } from './lineup.js';
 import { KINDS } from '../data/balance.js';
 
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 
 // 前の版の保存を今の形にする（版2 → 3：道場を足した）。読めなければ null。
 export function migrate(state) {
@@ -20,6 +21,12 @@ export function migrate(state) {
   if (state.version === 2) {
     state.dojo = { nodes: {}, scroll: null, drawn: 0 };
     state.version = 3;
+  }
+  if (state.version === 3) {
+    // 版3 → 4：技の並びを足した
+    state.lineup = { byRegion: {} };
+    if (state.run) state.run.line = newLine();
+    state.version = 4;
   }
   return state.version === STATE_VERSION ? state : null;
 }
@@ -37,6 +44,7 @@ export function enemyAt(regionId, i) {
     hp: r.enemy.hp + Math.floor(r.enemy.hpStep * i),
     atk: r.enemy.atk + Math.floor(i / r.enemy.atkEvery),
     hits: r.enemy.hits ?? 1,
+    traits: r.enemy.traits ?? null,
     drop: r.drops[i % r.drops.length],
   };
 }
@@ -64,6 +72,7 @@ function newRun(state, regionId, wait = 0) {
     nextEnemyAt: r.gap,
     fight: null,
     wait,
+    line: newLine(), // 技の並びは出発ごとに頭から（判定表 第9回 A1）
   };
 }
 
@@ -83,6 +92,7 @@ export function createGame() {
     crafter: { cd: MERGE_CRAFTER.everyTicks },
     workshop: { arm: 0, speed: 0, widen: 0 },
     dojo: { nodes: {}, scroll: null, drawn: 0 },
+    lineup: { byRegion: {} },
     stats: {
       departures: 1, picked: 0, overflow: 0, merges: 0, crafterMerges: 0, kills: 0, crafted: 0, autoCrafted: 0, crits: 0,
       returns: { prep: 0, down: 0, boss: 0 }, firstBoss: {},
@@ -141,10 +151,15 @@ function goHome(s, reason, events) {
 
 function startFight(s, boss) {
   const run = s.run;
-  const e = boss ? region(run.region).boss : enemyAt(run.region, run.enemyIndex);
+  const e = boss ? { ...region(run.region).boss, traits: region(run.region).boss.traits ?? region(run.region).enemy.traits ?? null } : enemyAt(run.region, run.enemyIndex);
   const hits = e.hits ?? 1;
   const enemyTicks = Math.max(1, Math.round(TICKS_PER_SEC / hits));
-  run.fight = { boss, hp: e.hp, maxHp: e.hp, atk: e.atk, enemyTicks, heroCd: 1, enemyCd: enemyTicks };
+  run.fight = { boss, hp: e.hp, maxHp: e.hp, atk: e.atk, enemyTicks, heroCd: 1, enemyCd: enemyTicks, breakUntil: -1, shell: 0, shieldHits: 0 };
+  // 敵の性質（判定表 第9回 C2）：殻・盾・回復
+  const t = e.traits;
+  if (t?.shell) run.fight.shell = t.shell;
+  if (t?.shield) Object.assign(run.fight, { shieldHits: t.shield, shieldMax: t.shield, shieldEvery: t.shieldSec * TICKS_PER_SEC, shieldCd: t.shieldSec * TICKS_PER_SEC });
+  if (t?.regenPct) run.fight.regen = (e.hp * t.regenPct) / TICKS_PER_SEC;
 }
 
 function winFight(s, events) {
@@ -222,24 +237,26 @@ function tickOnce(s, events, locked) {
   }
 
   if (run.fight) {
+    // 普通の攻撃の合間に技の並びを使う（判定表 第9回。src/core/lineup.js）
     const f = run.fight;
+    if (!run.line) run.line = newLine();
+    const cards = activeCards(s, run.region);
+    const ctx = { tick: s.tick, hero, cards, levels: levelsOf(s, cards), recast: recastTicks(s), line: run.line, f, run, events: [] };
+    tickFight(ctx);
     f.heroCd -= 1;
-    if (f.heroCd <= 0) {
-      f.hp -= hero.atk;
-      f.heroCd = hero.attackTicks;
-      if (f.hp <= 0) {
-        winFight(s, events);
-        return;
-      }
+    if (f.heroCd <= 0) heroAct(ctx);
+    if (f.hp > 0) {
+      f.enemyCd -= 1;
+      if (f.enemyCd <= 0) enemyAct(ctx);
     }
-    f.enemyCd -= 1;
-    if (f.enemyCd <= 0) {
-      run.hp -= damageTaken(f.atk, hero.guard) * hero.taken;
-      f.enemyCd = f.enemyTicks;
-      if (run.hp <= 0) {
-        goHome(s, 'down', events); // 倒れたら支度の残りを失って帰る（判定表 第1回 B6）
-        return;
-      }
+    for (const e of ctx.events) events.push({ ...e, type: 'line', what: e.type });
+    if (f.hp <= 0) {
+      winFight(s, events);
+      return;
+    }
+    if (run.hp <= 0) {
+      goHome(s, 'down', events); // 倒れたら支度の残りを失って帰る（判定表 第1回 B6）
+      return;
     }
   } else {
     run.step += HERO.walk;

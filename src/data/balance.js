@@ -42,6 +42,7 @@ export const WORKSHOP = Object.freeze({
 // 地域（判定表 第1回 B4。名前は仮）。地域1・2は工程3で合わせた。地域3〜6は予定表から出した仮の値（工程6・7で直す）。
 // gap：敵の間の歩数。drain：1刻みに減る支度（地域ごとに約2倍）。bossAt：ボスまでの歩数。
 // enemy：道の敵。i 体目は hp = hp + hpStep × i、atk = atk + floor(i / atkEvery)。hits は1秒に何回攻撃するか（群れ・多段）。
+// traits：敵の性質（判定表 第9回 C2）。shell＝1回の攻撃から引く殻、shield＝最初の◯回を防ぐ（shieldSec 秒に1つ戻る）、regenPct＝毎秒、最大HPのこの割合を回復。
 // drops：道の敵が順に落とす物（乱数なし。i 体目は drops[i % 長さ]）。価値は地域ごとに約2倍（判定表 第4回 C3）。
 // unlocks：ボスを倒すと開く物（判定表 第4回 C7：地域1 打ち分けと工房、地域2 マージの職人と道場、地域3 打ち分けの職人、地域4 門下生、地域5 振り分け）。
 export const REGIONS = Object.freeze([
@@ -61,22 +62,22 @@ export const REGIONS = Object.freeze([
   },
   {
     id: 3, name: '古い森', wall: '硬い殻', gap: 30, drain: 2.8, bossAt: 2100,
-    enemy: { name: '甲虫', hp: 120, hpStep: 4, atk: 12, atkEvery: 10, hits: 1 },
-    boss: { name: '甲羅の古木', hp: 7200, atk: 30, hits: 1 },
+    enemy: { name: '甲虫', hp: 120, hpStep: 4, atk: 12, atkEvery: 10, hits: 1, traits: { shell: 25 } },
+    boss: { name: '甲羅の古木', hp: 7200, atk: 30, hits: 1, traits: { shell: 60 } },
     drops: [{ kind: 'copper', rank: 2 }, { kind: 'ice', rank: 2 }, { kind: 'wind', rank: 2 }, { kind: 'copper', rank: 3 }],
     unlocks: ['region:4', 'crafter:forge', 'school:magic', 'school:bow'],
   },
   {
     id: 4, name: '雪山', wall: '盾（多段）', gap: 30, drain: 5.6, bossAt: 2400,
-    enemy: { name: '盾の兵', hp: 500, hpStep: 20, atk: 10, atkEvery: 10, hits: 2 },
-    boss: { name: '氷の門番', hp: 34000, atk: 30, hits: 2 },
+    enemy: { name: '盾の兵', hp: 500, hpStep: 20, atk: 10, atkEvery: 10, hits: 2, traits: { shield: 3, shieldSec: 2 } },
+    boss: { name: '氷の門番', hp: 34000, atk: 30, hits: 2, traits: { shield: 5, shieldSec: 1.5 } },
     drops: [{ kind: 'mithril', rank: 2 }, { kind: 'ice', rank: 3 }, { kind: 'thunder', rank: 2 }, { kind: 'mithril', rank: 3 }],
     unlocks: ['region:5', 'disciple', 'school:summon', 'school:stealth'],
   },
   {
     id: 5, name: '沼地', wall: '回復する敵', gap: 30, drain: 11, bossAt: 2700,
-    enemy: { name: '沼の影', hp: 2000, hpStep: 70, atk: 40, atkEvery: 8, hits: 1 },
-    boss: { name: '沼の主', hp: 150000, atk: 120, hits: 1 },
+    enemy: { name: '沼の影', hp: 2000, hpStep: 70, atk: 40, atkEvery: 8, hits: 1, traits: { regenPct: 0.03 } },
+    boss: { name: '沼の主', hp: 150000, atk: 120, hits: 1, traits: { regenPct: 0.01 } },
     drops: [{ kind: 'mithril', rank: 3 }, { kind: 'dragon', rank: 2 }, { kind: 'thunder', rank: 3 }, { kind: 'dragon', rank: 3 }],
     unlocks: ['region:6', 'split'],
   },
