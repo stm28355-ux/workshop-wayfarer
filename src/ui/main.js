@@ -8,6 +8,8 @@ import { TICKS_PER_SEC, PREP, KINDS } from '../data/balance.js';
 import { load, save, clear } from './save.js';
 import { createForgeUI, craftText } from './forge-ui.js';
 import { createDojoUI } from './dojo-ui.js';
+import { activeCards } from '../core/lineup.js';
+import { CARDS } from '../data/cards.js';
 
 const params = new URLSearchParams(location.search);
 const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
@@ -88,16 +90,21 @@ function handle(events) {
     } else if (e.type === 'unlock') {
       const name = unlockName(e.key);
       if (name) log(`${name}が開いた`, 'good');
+    } else if (e.type === 'line') {
+      // 技の並びの効き（判定表 第9回 C5）：戦いごとに数える
+      if (e.what === 'dodge' || e.what === 'focus') fightNotes.dodge += 1;
+      if (e.what === 'parry') fightNotes.parry += 1;
+    } else if (e.type === 'kill' || e.type === 'boss' || e.type === 'return') {
+      fightNotes.dodge = 0;
+      fightNotes.parry = 0;
+      if (e.type === 'return') handleReturn(e);
     } else if (e.type === 'crafterMerge') {
       recent.merge.push(state.tick);
       const until = performance.now() + 450;
       for (const i of e.merged.at) flashes.set(i, until);
     } else if (e.type === 'craft' && e.auto) {
       log(craftText(e));
-    } else if (e.type === 'return') {
-      meta.best[e.region] = Math.max(meta.best[e.region] ?? 0, e.step);
-      if (e.reason === 'prep') log(`支度が切れて村へ帰った（${e.step}歩）。3秒後に出発`);
-      else if (e.reason === 'down') log(`倒れて村へ帰った（${e.step}歩）。支度の残りは失った`, 'bad');
+
     }
   }
   if (overflow) {
@@ -109,6 +116,13 @@ function handle(events) {
     meta.log.length = Math.min(meta.log.length, 4);
   }
   meta.best[state.run.region] = Math.max(meta.best[state.run.region] ?? 0, state.run.step);
+}
+
+const fightNotes = { dodge: 0, parry: 0 };
+function handleReturn(e) {
+  meta.best[e.region] = Math.max(meta.best[e.region] ?? 0, e.step);
+  if (e.reason === 'prep') log(`支度が切れて村へ帰った（${e.step}歩）。3秒後に出発`);
+  else if (e.reason === 'down') log(`倒れて村へ帰った（${e.step}歩）。支度の残りは失った`, 'bad');
 }
 
 function unlockName(key) {
@@ -399,6 +413,8 @@ function render(now) {
     $('enemy-text').textContent = '';
   }
 
+  renderFightLine(s);
+
   const logHtml = [0, 1, 2, 3].map((i) => {
     const l = meta.log[i];
     return `<li class="${l ? l.kind : ''}">${l ? l.text : '&nbsp;'}</li>`;
@@ -424,6 +440,39 @@ function render(now) {
   $('rate-merge').textContent = recent.merge.length;
   $('rate-over').textContent = recent.over.length;
   renderRecords();
+}
+
+// 技の並びの進みと状態（判定表 第9回 C5）
+function renderFightLine(s) {
+  const run = s.run;
+  const cards = activeCards(s, run.region);
+  const line = run.line;
+  const parts = [];
+  if (cards.length && line) {
+    const seq = cards.map((id, i) => (i === line.pos && line.recast <= 0 ? `[${CARDS[id].name}]` : CARDS[id].name)).join(' → ');
+    parts.push(`並び：${seq}${line.recast > 0 ? `（積み直し ${(line.recast / TICKS_PER_SEC).toFixed(1)}秒）` : ''}`);
+    const st = [];
+    if (line.mods.length) st.push(`溜め×${line.mods.length}`);
+    if (line.dodge > 0) st.push(`かわし${line.dodge}`);
+    if (line.parry > 0) st.push('受け流し構え');
+    if (s.tick < line.stanceUntil) st.push('構え');
+    if (s.tick < line.focusUntil) st.push('心眼');
+    const f = run.fight;
+    if (f && f.breakUntil > s.tick) st.push('敵：崩し');
+    if (fightNotes.dodge) st.push(`かわした${fightNotes.dodge}`);
+    if (fightNotes.parry) st.push(`返した${fightNotes.parry}`);
+    if (st.length) parts.push(st.join('・'));
+  }
+  const f = run.fight;
+  if (f) {
+    const tr = [];
+    if (f.shell) tr.push(`殻${Math.round(f.shell)}`);
+    if (f.shieldMax) tr.push(`盾${f.shieldHits}/${f.shieldMax}`);
+    if (f.regen) tr.push('回復');
+    if (tr.length) parts.push(`敵の性質：${tr.join('・')}`);
+  }
+  const text = parts.join('　');
+  if ($('fight-line').textContent !== text) $('fight-line').textContent = text;
 }
 
 // 試すときの記録（判定表 第2回）：遊んだ時間・出発・倒れた・支度切れ・ボスを初めて倒した時間とレベル

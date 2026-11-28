@@ -173,14 +173,15 @@ test('技の効き：見切り・盾構え・盾打ち・受け流し・心眼',
   if (c >= 0) assert.ok(scrollTech(st, 'shingan', c).state.dojo.scroll.sure.includes(c));
 });
 
-test('道場は地域2のボスまで閉じている。版2の保存は道場を足して読める', () => {
+test('道場は地域2のボスまで閉じている。版2の保存は道場と並びを足して読める', () => {
   const s = createGame();
   assert.equal(startScroll(s, 'kamae').ok, false);
   const old = createGame();
   delete old.dojo;
   old.version = 2;
   const m = migrate(old);
-  assert.equal(m.version, 3);
+  assert.equal(m.version, 4);
   assert.deepEqual(m.dojo, { nodes: {}, scroll: null, drawn: 0 });
+  assert.deepEqual(m.lineup, { byRegion: {} }, '版3 → 4 で技の並びも足す');
   assert.equal(migrate({ version: 1 }), null);
 });
