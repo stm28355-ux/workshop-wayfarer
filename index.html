@@ -23,8 +23,8 @@
       <div class="row region-row">
         <label class="region">地域 <select id="region" data-act="region"></select></label>
         <button type="button" class="mini" id="btn-retire" data-act="retire" title="今の出発をやめて村へ帰り、選んだ地域へ出発し直す（旅支度の残りは持ち越す）">帰る</button>
+        <span id="region-note" class="quiet small region-note"></span>
       </div>
-      <p id="region-note" class="quiet small"></p>
       <p id="hero-level" class="strong"></p>
       <div class="meter-row"><span class="label">HP</span><span class="meter hp"><span id="hp-bar"></span></span><span id="hp-text" class="num"></span></div>
       <div class="meter-row"><span class="label">旅支度</span><span class="meter prep"><span id="prep-bar"></span></span><span id="prep-text" class="num"></span></div>
@@ -40,7 +40,8 @@
         <span id="road-text" class="num scene-tag"></span>
         <span class="scene-foe"><span id="fight-name" class="fight-name"></span>
           <span class="meter enemy" id="enemy-meter"><span id="enemy-bar"></span></span>
-          <span id="enemy-text" class="num"></span></span>
+          <span id="enemy-text" class="num"></span>
+          <span id="foe-traits" class="foe-traits"></span></span>
       </div>
       <span class="road" id="road">
         <span class="road-best" id="road-best"></span>
