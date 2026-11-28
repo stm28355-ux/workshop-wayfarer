@@ -87,7 +87,7 @@ export function createDojoUI({ get, set, log }) {
     else if (a === 'card' || a === 'slot' || a === 'unslot' || a === 'left' || a === 'right') lineAct(s, a, b);
     else if (a === 'start') {
       const r = startScroll(s, ui.node);
-      if (r.ok) { set(r.state); ui.mode = r.state.dojo.scroll.kind === 'nono' ? 'paint1' : 'open'; ui.tech = null; ui.glow = null; ui.last = null; } else log(r.reason);
+      if (r.ok) { set(r.state); ui.mode = r.state.dojo.scroll.kind === 'nono' ? 'paint1' : 'open'; ui.tech = null; ui.glow = null; ui.last = null; ui.quitAsk = false; } else log(r.reason);
     } else if (a === 'mode') { ui.mode = b.dataset.mode; ui.tech = null; }
     else if (a === 'tech') {
       const t = b.dataset.tech;
@@ -96,8 +96,13 @@ export function createDojoUI({ get, set, log }) {
         if (r.ok) { set(r.state); log('受け流しを構えた（次のミスを数えない）'); }
       } else ui.tech = ui.tech === t ? null : t;
     } else if (a === 'quit') {
-      if (!confirm('この巻物をやめますか？（熟練は入らない）')) return;
+      // 確認は窓を出さず、ボタンの所で済ませる（判定表 第15回の一言）
+      ui.quitAsk = true;
+    } else if (a === 'quit-yes') {
+      ui.quitAsk = false;
       set(quitScroll(s).state);
+    } else if (a === 'quit-no') {
+      ui.quitAsk = false;
     }
     lastKey = '';
     render();
@@ -342,6 +347,13 @@ export function createDojoUI({ get, set, log }) {
     return h;
   }
 
+  // やめるボタン。押すとその場で「やめる／続ける」を聞く。
+  function quitHtml() {
+    if (!ui.quitAsk) return '<button type="button" class="mini wide" data-dact="quit">やめる（熟練は入らない）</button>';
+    return '<p class="small quit-ask">この巻物をやめますか？（熟練は入らない）　' +
+      '<button type="button" class="mini wide" data-dact="quit-yes">やめる</button> <button type="button" class="mini wide" data-dact="quit-no">続ける</button></p>';
+  }
+
   // 剣の巻物（ピクロス）
   function nonoScrollHtml(s) {
     const sc = s.dojo.scroll;
@@ -363,7 +375,7 @@ export function createDojoUI({ get, set, log }) {
     }
     h += nonoBoardHtml(sc);
     h += '<p class="small quiet">押したまま動かすと続けて塗る・×。右クリック・長押しで×。×のマスは塗れない（先に×を外す）。濃い×は技で分かった「塗らない」マス。小さい数字は出血の刃（まわり8マスの塗る数）。</p>';
-    h += '<button type="button" class="mini wide" data-dact="quit">やめる（熟練は入らない）</button>';
+    h += quitHtml();
     return h;
   }
 
@@ -406,7 +418,7 @@ export function createDojoUI({ get, set, log }) {
     }
     h += '</div>';
     h += '<p class="small quiet">右クリック・長押しで印。数字を押すと数えるマスが光る。◆は技で分かった罠、◇は自分の印。</p>';
-    h += '<button type="button" class="mini wide" data-dact="quit">やめる（熟練は入らない）</button>';
+    h += quitHtml();
     return h;
   }
 
