@@ -557,7 +557,7 @@ export function forgeCheck(state, { kind, slot, tier, fuel }) {
   if (!isOpen(state, 'stage:forge')) return { ok: false, reason: '打ち分けは地域1のボスを倒すと開く' };
   if (state.forge.session) return { ok: false, reason: '打っている途中' };
   if (!slotsOf(kind).includes(slot)) return { ok: false, reason: 'この素材では作れない' };
-  if (!(tier >= 1) || tier > GEAR.tierMax || !bandOf(tier)) return { ok: false, reason: `格${GEAR.tierMax + 1}からは次の工程で` };
+  if (!(tier >= 1) || tier > GEAR.tierMax || !bandOf(tier)) return { ok: false, reason: `格は${GEAR.tierMax}まで` };
   const plan = planOf(state.gear.items, kind, slot, tier);
   if (plan.mode === 'full') return { ok: false, reason: `格${tier}の加算は${GEAR.addCap}回使い切った`, plan };
   const cost = gearCost(tier);

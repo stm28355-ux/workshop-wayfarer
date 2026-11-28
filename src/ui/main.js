@@ -26,7 +26,9 @@ const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
 // ?test=forge3 は地域3のボスの後（打ち分けの職人が来ている）、銅・鉄・魔銀と欠片がたまっていて、格3・4 と燃料の叩き方を試せる（判定表 第16回 E2）。
 // ?test=magic は ?test=forge3 と同じ所から、魔法と弓の流派が開いていて、巻物の形を一通り試せる（判定表 第19回）。
 //   魔法：火球・雷撃は 4×4 の変えあり、火の心・氷の槍は 6×6。弓：連射・風の矢は 5×5 の変えあり、早手・狙い撃ちは 7×7。
-const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto', 'sword', 'forge3', 'magic'].includes(params.get('test')) ? params.get('test') : null;
+// ?test=summon は地域4のボスの後で、召喚と隠密の流派が開いていて巻物の形を一通り試せ、竜の鱗・星鉄・鉄で格5・6 を打てる（工程7d）。
+//   召喚：狼・岩の守り手は 5×5 の変えあり、獣の声・精霊の声は 7×7。隠密：毒の刃・煙玉は 5×5 の変えあり、足音・影縫いは 7×7。
+const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto', 'sword', 'forge3', 'magic', 'summon'].includes(params.get('test')) ? params.get('test') : null;
 const SLOT = TEST ? `test-${TEST}` : undefined;
 const TICK_MS = 1000 / TICKS_PER_SEC;
 const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
@@ -49,6 +51,24 @@ function testState(mode) {
   if (mode === 'r3') return planAfterRegion2();
   if (mode === 'auto') return autoState();
   if (mode === 'forge3') return forge3State();
+  if (mode === 'summon') {
+    const s = forge3State();
+    s.cleared.push(4);
+    for (const key of region(4).unlocks) {
+      const [what, arg] = key.split(':');
+      if (what === 'region') { if (!s.open.regions.includes(Number(arg))) s.open.regions.push(Number(arg)); }
+      else if (!s.open.unlocks.includes(key)) s.open.unlocks.push(key);
+    }
+    s.hero.level = 13;
+    s.stock.forge = { ...s.stock.forge, iron: 9000, dragon: 3000, star: 3000, fire: 300, stone: 300, ice: 300, wind: 300, thunder: 300 };
+    const skill = {
+      keiyaku: 2, kemonogoe: 4, seireigoe: 4, mamorigoe: 2,
+      kehai: 2, dokuchishiki: 2, ashioto: 4, kagenui: 4, migaru: 2,
+    };
+    for (const [id, v] of Object.entries(skill)) s.dojo.nodes[id] = { skill: v };
+    s.run.hp = heroStats(s).maxHp;
+    return s;
+  }
   if (mode === 'magic') {
     const s = forge3State();
     const skill = {

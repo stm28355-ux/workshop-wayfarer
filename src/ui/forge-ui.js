@@ -5,7 +5,7 @@ import {
   craftable,
 } from '../core/game.js';
 import { planOf, mainValue, heroStats, itemKey, baseOf, statOf, intervalText, craftGain } from '../core/gear.js';
-import { preview, canStrike, canFire, score, cellQuality, strikeAmount, hasTool, strikesLeft } from '../core/forge.js';
+import { preview, canStrike, canFire, score, cellQuality, strikeAmount, hasTool, strikesLeft, targetSeen, LONG_HEAT } from '../core/forge.js';
 import { GEAR, SLOTS, STRIKES, TEMPS, GEAR_KINDS, gearCost, bandOf } from '../data/forge.js';
 import { KINDS, WORKSHOP, TICKS_PER_SEC } from '../data/balance.js';
 import { discipleTicks } from '../core/dojo.js';
@@ -191,7 +191,7 @@ export function createForgeUI({ get, set, log }) {
       h += `<button type="button" class="opt${ui.tier === t ? ' sel' : ''}" data-act="tier" data-tier="${t}" ${p.mode === 'full' ? 'disabled' : ''}>` +
         `格${t}<small>${what}</small><small class="num">${KINDS[ui.kind].name} ${gearCost(t)}・${gain}</small></button>`;
     }
-    h += `<span class="quiet small">格${GEAR.tierMax + 1}からは次の工程（格3・4 は 3×3 の9マス）</span></div>`;
+    h += `<span class="quiet small">格は${GEAR.tierMax}まで（格1・2 は6マス、3・4 は9マス、5・6 は12マス）</span></div>`;
     // 燃料
     const band = bandOf(ui.tier);
     const pow = fuelPower(ui.fuel);
@@ -227,8 +227,10 @@ export function createForgeUI({ get, set, log }) {
     // 温度：段ごとに叩ける回数を丸で見せる（●＝叩いた、○＝残り）。判定表 第5回 Q3
     h += '<div class="temps">' + TEMPS.map((t, i) => {
       const cls = i === se.temp ? 'now' : i < se.temp ? 'past' : '';
-      const used = i < se.temp ? se.perLevel : i === se.temp ? se.perLevel - se.left : 0;
-      const pips = '●'.repeat(used) + '○'.repeat(se.perLevel - used);
+      // 竜の鱗は灼熱が長い（工程7d）
+      const per = se.quirk === 'longheat' && i === 0 ? LONG_HEAT : se.perLevel;
+      const used = i < se.temp ? per : i === se.temp ? per - se.left : 0;
+      const pips = '●'.repeat(used) + '○'.repeat(Math.max(0, per - used));
       return `<span class="temp t${i} ${cls}">${t.name} ×${t.mult}<small class="pips">${pips}</small></span>`;
     }).join('') + `<span class="temp t3${se.temp > 2 ? ' now' : ''}">冷えた</span></div>`;
     const tempNote = se.temp > 2
@@ -251,7 +253,8 @@ export function createForgeUI({ get, set, log }) {
     const gain = new Map(pv.map((p) => [p.index, p]));
     h += `<div class="anvil" style="--w:${se.w}">` + se.values.map((v, i) => {
       const c = se.targets[i];
-      const q = cellQuality(v, c);
+      const seen = targetSeen(se, i); // 星鉄は叩くまで目標が見えない（工程7d）
+      const q = seen ? cellQuality(v, c) : { q: 0, crack: false };
       const p = gain.get(i);
       const g = p?.amount ?? 0;
       const hitHere = !!p && (p.hit ?? true);
@@ -259,12 +262,12 @@ export function createForgeUI({ get, set, log }) {
       let next = '';
       if (p) {
         const nv = v + g;
-        const nq = cellQuality(nv, c);
+        const nq = seen ? cellQuality(nv, c) : { q: 0, crack: false };
         const cls = nq.crack ? ' bad' : nq.q === 2 ? ' good' : q.q > nq.q ? ' bad' : '';
         next = `<span class="gain${cls}">${g < 0 ? '−' : g > 0 ? '＋' : '±'}${Math.abs(g)}→${nv}</span>`;
       }
-      return `<button type="button" class="anv${hitHere ? ' aim' : ''}${q.crack ? ' crack' : q.q === 2 ? ' best' : q.q === 1 ? ' ok' : ''}" data-act="hit" data-cell="${i}" aria-label="マス${i + 1}：今${v}、目標${c}（${c - 1}〜${c + 1}）">` +
-        `<b class="num">${v}</b><small class="num">目標 ${c}（${c - 1}〜${c + 1}）</small><span class="mark">${mark}</span>${next}</button>`;
+      return `<button type="button" class="anv${hitHere ? ' aim' : ''}${q.crack ? ' crack' : q.q === 2 ? ' best' : q.q === 1 ? ' ok' : ''}" data-act="hit" data-cell="${i}" aria-label="マス${i + 1}：今${v}、目標${seen ? `${c}（${c - 1}〜${c + 1}）` : 'まだ見えない'}">` +
+        `<b class="num">${v}</b><small class="num">${seen ? `目標 ${c}（${c - 1}〜${c + 1}）` : '目標 ？'}</small><span class="mark">${mark}</span>${next}</button>`;
     }).join('') + '</div>';
     h += '<button type="button" class="go" data-act="finish">仕上げる</button>';
     return h;

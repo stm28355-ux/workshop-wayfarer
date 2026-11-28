@@ -39,6 +39,24 @@ export const CARDS = Object.freeze({
   oiuchi: { name: '追い撃ち', type: 'trig', swings: 0, node: 'oiuchi', text: '次の技で敵を倒したら、その次の札を次の敵へすぐ放つ（時間なし）' },
   shirushi: { name: '印があれば', type: 'cond', swings: 0, cond: 'marked', node: 'shirushi', text: '敵に印がなければ次の1枚を飛ばす' },
   tsuranuki: { name: '貫き', type: 'mod', swings: 0.5, mult: 1, timeMult: 1, pierce: true, node: 'tsuranuki', text: '次の技が殻を無視する' },
+  // 召喚（工程7d）。pet：召喚獣。sec 秒のあいだ every 秒ごとに 攻撃×damage（盾を1回ずつ削る）
+  ookami: { name: '狼', type: 'tech', swings: 1, pet: { sec: 8, every: 1, damage: 0.5 }, node: 'ookami', text: '狼を呼ぶ：8秒、毎秒 攻撃×0.5' },
+  hinosei: { name: '火の精', type: 'tech', swings: 1, pet: { sec: 8, every: 2, damage: 0.6, elem: 'fire' }, node: 'hinosei', text: '火の精を呼ぶ：8秒、2秒ごとに 火 攻撃×0.6＋燃焼' },
+  iwamori: { name: '岩の守り手', type: 'tech', swings: 1, absorb: 3, node: 'iwamori', text: '敵の次の攻撃3回を受け持つ' },
+  ryuu: { name: '竜を呼ぶ', type: 'tech', swings: 3, pet: { sec: 10, every: 1, damage: 1.5, area: true }, node: 'ryuu', text: '竜を呼ぶ：10秒、毎秒 攻撃×1.5 を群れの全員に' },
+  kari: { name: '狩り', type: 'tech', swings: 2, damage: 2.0, mark: true, node: 'kari', text: '攻撃×2.0＋印' },
+  muredashi: { name: '群れ呼び', type: 'mod', swings: 0.5, mult: 1, timeMult: 1, pets: 2, node: 'muredashi', text: '次の召喚は2体' },
+  yondeireba: { name: '呼んでいれば', type: 'cond', swings: 0, cond: 'summoned', node: 'yondeireba', text: '召喚獣がいなければ次の1枚を飛ばす' },
+  gourei: { name: '号令', type: 'mod', swings: 0.5, mult: 1.5, timeMult: 1, node: 'gourei', text: '次の技の効きが1.5倍' },
+  // 隠密（工程7d）。毒：回復を止める
+  dokuba: { name: '毒の刃', type: 'tech', swings: 1, damage: 0.8, poison: true, node: 'dokuba', text: '攻撃×0.8＋毒（8秒、毎秒 攻撃×0.2、毒の間は回復しない）' },
+  kagenui: { name: '影縫い', type: 'tech', swings: 1, damage: 1.2, holdSec: 2, node: 'kagenui', text: '攻撃×1.2、敵を2秒止める' },
+  kemuri: { name: '煙玉', type: 'tech', swings: 0.5, dodge: 2, node: 'kemuri', text: '敵の攻撃を2回かわす' },
+  ansatsu: { name: '暗殺', type: 'tech', swings: 3, damage: 6.0, execute: 0.3, node: 'ansatsu', text: '攻撃×6.0。当てた後に敵の HP が3割以下なら倒す' },
+  kagebunshin: { name: '影分身', type: 'tech', swings: 1, pet: { sec: 8, every: 1, damage: 0.5 }, dodge: 1, node: 'kagebunshin', text: '分身を呼ぶ（8秒、毎秒 攻撃×0.5）＋1回かわす' },
+  nuri: { name: '毒を塗る', type: 'mod', swings: 0.5, mult: 1, timeMult: 1, poison: true, node: 'nuri', text: '次の技に毒を付ける' },
+  fuiuchi: { name: '不意を突く', type: 'cond', swings: 0, cond: 'held', node: 'fuiuchi', text: '敵が止まっていなければ（影縫い・凍結）次の1枚を飛ばす' },
+  shinobi: { name: '忍び', type: 'mod', swings: 0.5, mult: 1, timeMult: 1, unshield: true, node: 'shinobi', text: '次の技が盾に防がれない' },
 });
 
 // 打撃の札（凍った敵に3倍。判定表 第18回 D1・D4）
@@ -71,6 +89,7 @@ export const ELEMENT_STATES = Object.freeze({
   freezeSec: 2, chillToFreeze: 2, shatter: 3,
   shockHits: 3,
   markSec: 10, markTaken: 1.2,
+  poisonSec: 8, poisonPer: 0.2, // 毒（工程7d）：毎秒 攻撃×poisonPer、毒の間は回復しない
 });
 
 // 殻を通るダメージの下限（殻より小さい攻撃でも元の1割は通る）。

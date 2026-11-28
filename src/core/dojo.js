@@ -1,6 +1,6 @@
 // 段3 道場：流派のスキルツリー（守り・剣）・熟練・巻物を解く手・修行中の技。純粋な関数だけ。
 // 守りの巻物はマインスイーパ（scroll.js）、剣はピクロス（nonogram.js）、魔法は属性の数独（sudoku.js）、
-// 弓は鏡で光を通す（mirrors.js）。判定表 第6回・第13回・第18回。
+// 弓は鏡で光を通す（mirrors.js）、召喚は部屋分け（rooms.js）、隠密は灯りを置く（lamps.js）。判定表 第6回・第13回・第18回・工程7d。
 // 状態は state.dojo = { nodes: { [節]: { skill } }, scroll: 解いている巻物 | null, drawn: 作った巻物の数 }。
 // 節の段は 熟練 ÷ 2（5段まで）。巻物を解くと熟練3、ミス1回につき −1（最低1）。判定表 第6回。
 
@@ -9,11 +9,15 @@ import { ALL_NODES, ALL_TECHS, SCHOOLS } from '../data/schools.js';
 import { swordSpec } from '../data/sword.js';
 import { magicSpec } from '../data/magic.js';
 import { bowSpec } from '../data/bow.js';
+import { summonSpec } from '../data/summon.js';
+import { stealthSpec } from '../data/stealth.js';
 import { TICKS_PER_SEC } from '../data/balance.js';
 import { generate, numberAt, areaOf } from './scroll.js';
 import { generateNono } from './nonogram.js';
 import { generateSudo } from './sudoku.js';
 import { generateBeams, SLASH, BACK, ROCK } from './mirrors.js';
+import { generateRooms, roomCells } from './rooms.js';
+import { generateLamps } from './lamps.js';
 
 export const LEVEL_MAX = 5;
 
@@ -63,6 +67,8 @@ export function scrollSpec(node, level) {
   if (node.school === 'sword') return swordSpec(node, level);
   if (node.school === 'magic') return magicSpec(node, level);
   if (node.school === 'bow') return bowSpec(node, level);
+  if (node.school === 'summon') return summonSpec(node, level);
+  if (node.school === 'stealth') return stealthSpec(node, level);
   const small = SCROLL_SIZES.small, large = SCROLL_SIZES.large;
   const size = (rules, big) => {
     const s = big ? large : small;
@@ -135,15 +141,16 @@ export function startScroll(state, id) {
   const spec = scrollSpec(node, level);
   const no = ALL_NODES.indexOf(node) + 1;
   const seedOf = (k) => no * 100000 + level * 10000 + d.drawn * 10 + k;
-  if (spec.kind === 'sudo' || spec.kind === 'beam') {
+  if (['sudo', 'beam', 'rooms', 'lamps'].includes(spec.kind)) {
+    const GEN = { sudo: generateSudo, beam: generateBeams, rooms: generateRooms, lamps: generateLamps };
     let g = null;
-    for (let k = 0; k < 5 && !g; k++) g = spec.kind === 'sudo' ? generateSudo({ ...spec, seed: seedOf(k) }) : generateBeams({ ...spec, seed: seedOf(k) });
+    for (let k = 0; k < 5 && !g; k++) g = GEN[spec.kind]({ ...spec, seed: seedOf(k) });
     if (!g) return { state, ok: false, reason: '巻物を作れなかった' };
     d.drawn += 1;
     const common = { kind: spec.kind, node: id, level, puzzle: g.puzzle, wrong: [], mistakes: 0, techs: techsFor(s, node, level), guard: false, hints: [], done: false };
-    d.scroll = spec.kind === 'sudo'
-      ? { ...common, values: {}, notes: {} }
-      : { ...common, placed: {}, xs: [], sureX: [] };
+    if (spec.kind === 'sudo') d.scroll = { ...common, values: {}, notes: {} };
+    else if (spec.kind === 'rooms') d.scroll = { ...common, placed: [] };
+    else d.scroll = { ...common, placed: {}, xs: [], sureX: [] };
     return { state: s, ok: true };
   }
   if (spec.kind === 'nono') {
@@ -176,6 +183,8 @@ function finishIfDone(s, events) {
   if (sc.kind === 'nono') { finishNonoIfDone(s, events); return; }
   if (sc.kind === 'sudo') { if (sudoLeft(sc) === 0) finishScroll(s, events); return; }
   if (sc.kind === 'beam') { if (beamLeft(sc) === 0) finishScroll(s, events); return; }
+  if (sc.kind === 'rooms') { if (sc.placed.length === sc.puzzle.rooms.length) finishScroll(s, events); return; }
+  if (sc.kind === 'lamps') { if (lampLeft(sc) === 0) finishScroll(s, events); return; }
   const safe = sc.puzzle.mines.filter((m) => !m).length;
   if (sc.opened.length < safe) return;
   finishScroll(s, events);
@@ -235,8 +244,9 @@ export function scrollTech(state, tech, i) {
   const t = s.dojo.scroll;
   const p = t.puzzle;
   const events = [];
-  if (t.kind === 'sudo' || t.kind === 'beam') {
-    if (!(i >= 0 && i < p.solution.length) || !revealTech(t, tech, i)) return { state, ok: false };
+  if (['sudo', 'beam', 'rooms', 'lamps'].includes(t.kind)) {
+    const size = t.kind === 'sudo' ? p.n * p.n : t.kind === 'beam' ? p.solution.length : p.w * p.h;
+    if (!(i >= 0 && i < size) || !revealTech(t, tech, i)) return { state, ok: false };
     t.techs[tech] -= 1;
     events.push({ type: 'tech', tech });
     finishIfDone(s, events);
@@ -299,8 +309,8 @@ export function quitScroll(state) {
 // ───── 巻物の形（判定表 第11回 A2）：変えルールの組み合わせと盤の大きさ ─────
 
 // 剣の巻物（ピクロス）は頭に nono/、魔法は sudo/、弓は beam/ を付けて守りと分ける。
-const KIND_PREFIX = { nono: 'nono/', sudo: 'sudo/', beam: 'beam/' };
-const KIND_NAME = { nono: '剣', sudo: '魔法', beam: '弓' };
+const KIND_PREFIX = { nono: 'nono/', sudo: 'sudo/', beam: 'beam/', rooms: 'rooms/', lamps: 'lamps/' };
+const KIND_NAME = { nono: '剣', sudo: '魔法', beam: '弓', rooms: '召喚', lamps: '隠密' };
 export function shapeKey(spec) {
   const w = spec.kind === 'sudo' ? spec.n : spec.w;
   const h = spec.kind === 'sudo' ? spec.n : spec.h;
@@ -310,11 +320,12 @@ export function shapeKey(spec) {
 const RULE_NAMES = {
   cross: '十字', connect: '連結', pair: '組', color: '色', sum: '合計', mirror: '鏡',
   react: '反応', cycle: '巡り', cage: '囲み', break: '割れる鏡', label: '番号',
+  square: '正方形', elem: '属性', hidden: '隠れた数', diag: '斜め', short: '短い', around: 'まわり',
 };
 export function shapeName(key) {
-  const m = key.match(/^(nono|sudo|beam)\//);
+  const m = key.match(/^(nono|sudo|beam|rooms|lamps)\//);
   const kind = m ? m[1] : null;
-  const [rules, size] = key.replace(/^(nono|sudo|beam)\//, '').split(':');
+  const [rules, size] = key.replace(/^(nono|sudo|beam|rooms|lamps)\//, '').split(':');
   const r = rules === 'base' ? '土台' : rules.split('+').map((x) => RULE_NAMES[x] ?? x).join('＋');
   return `${kind ? KIND_NAME[kind] : '守り'} ${r} ${size.replace('x', '×')}`;
 }
@@ -344,10 +355,11 @@ export function shapesFromLevels(state) {
 // 人が解いている節は取らない（A5）。
 
 // 枝の名前は流派をまたいで重ならない。根は同じ流派の枝を選んだときに入る。
-export const DISCIPLE_BRANCHES = Object.freeze(['all', '受け', '返し', '息吹', '速さ', '重さ', '刃', '炎', '水氷', '雷', '速射', '狙い', '風']);
+export const DISCIPLE_BRANCHES = Object.freeze(['all', '受け', '返し', '息吹', '速さ', '重さ', '刃', '炎', '水氷', '雷', '速射', '狙い', '風', '獣', '精霊', '守護', '毒', '影', '煙']);
 const BRANCH_SCHOOL = {
   受け: 'guard', 返し: 'guard', 息吹: 'guard', 速さ: 'sword', 重さ: 'sword', 刃: 'sword',
   炎: 'magic', 水氷: 'magic', 雷: 'magic', 速射: 'bow', 狙い: 'bow', 風: 'bow',
+  獣: 'summon', 精霊: 'summon', 守護: 'summon', 毒: 'stealth', 影: 'stealth', 煙: 'stealth',
 };
 
 export function discipleTicks(state) {
@@ -457,8 +469,10 @@ export function scrollPaint(state, i, color = 1) {
 // ×（自分用の印）を付ける・外す。on を省くと切り替え。
 export function scrollMark(state, i, on) {
   const sc = state.dojo?.scroll;
-  if (!sc || (sc.kind !== 'nono' && sc.kind !== 'beam')) return { state, ok: false };
-  const filled = sc.kind === 'nono' ? sc.paint[i] !== undefined : sc.placed[i] !== undefined || sc.puzzle.shown.includes(i) || sc.puzzle.solution[i] === ROCK;
+  if (!sc || !['nono', 'beam', 'lamps'].includes(sc.kind)) return { state, ok: false };
+  const filled = sc.kind === 'nono' ? sc.paint[i] !== undefined
+    : sc.kind === 'lamps' ? sc.placed[i] !== undefined || sc.puzzle.wall[i]
+      : sc.placed[i] !== undefined || sc.puzzle.shown.includes(i) || sc.puzzle.solution[i] === ROCK;
   if (filled || sc.wrong.includes(i) || sc.sureX.includes(i)) return { state, ok: false };
   const has = sc.xs.includes(i);
   const want = on ?? !has;
@@ -584,6 +598,7 @@ export function scrollMirror(state, i, v) {
 // 魔法と弓の修行中の技：マスの答えを見せる（第18回 E・F。巻物での手がかりは data/magic.js・bow.js）。
 function revealTech(t, tech, i) {
   const p = t.puzzle;
+  if (t.kind === 'rooms' || t.kind === 'lamps') return revealTech7d(t, tech, i);
   const w = t.kind === 'sudo' ? p.n : p.w;
   const h = t.kind === 'sudo' ? p.n : p.h;
   const x = i % w, y = Math.floor(i / w);
@@ -622,6 +637,114 @@ function revealTech(t, tech, i) {
     const around = [];
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) around.push([x + dx, y + dy]);
     t.hints.push({ tech, at: i, value: cellsAt(around).filter((c) => p.solution[c] === SLASH || p.solution[c] === BACK).length });
+  } else return false;
+  return true;
+}
+
+// ───── 召喚の巻物（部屋分け。工程7d） ─────
+// 巻物の状態：{ kind: 'rooms', node, level, puzzle, placed: [置けた部屋の番号], wrong: [ミスした部屋の番号], mistakes, techs, hints }
+
+// 部屋のあるマス → 部屋の番号
+function roomAt(p, i) {
+  return p.rooms.findIndex((r) => roomCells(r, p.w).includes(i));
+}
+
+// 長方形（2つの角のマス a・b）で部屋を切る。数字がちょうど1つの長方形だけ受け付ける。
+// 答えと同じならその部屋が置け、違えばミスで正しい部屋が置かれる。
+export function scrollRoom(state, a, b) {
+  const sc = state.dojo?.scroll;
+  if (!sc || sc.kind !== 'rooms') return { state, ok: false };
+  const p = sc.puzzle;
+  const N = p.w * p.h;
+  if (!(a >= 0 && a < N && b >= 0 && b < N)) return { state, ok: false };
+  const x0 = Math.min(a % p.w, b % p.w), x1 = Math.max(a % p.w, b % p.w);
+  const y0 = Math.min(Math.floor(a / p.w), Math.floor(b / p.w)), y1 = Math.max(Math.floor(a / p.w), Math.floor(b / p.w));
+  const rect = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  const cells = roomCells(rect, p.w);
+  const taken = new Set(sc.placed.flatMap((k) => roomCells(p.rooms[k], p.w)));
+  if (cells.some((c) => taken.has(c))) return { state, ok: false, reason: 'もう置いた部屋と重なる' };
+  const inside = p.clues.map((c, k) => (cells.includes(c.at) ? k : -1)).filter((k) => k >= 0);
+  if (inside.length !== 1) return { state, ok: false, reason: inside.length ? '数字が2つ以上ある' : '数字がない' };
+  const k = inside[0];
+  const s = clone(state);
+  const t = s.dojo.scroll;
+  const events = [];
+  const r = p.rooms[k];
+  t.placed.push(k);
+  if (!(r.x === rect.x && r.y === rect.y && r.w === rect.w && r.h === rect.h)) {
+    t.wrong.push(k);
+    t.mistakes += 1;
+    events.push({ type: 'miss' });
+  }
+  finishIfDone(s, events);
+  return { state: s, ok: true, events };
+}
+
+// ───── 隠密の巻物（灯りを置く。工程7d） ─────
+// 巻物の状態：{ kind: 'lamps', node, level, puzzle, placed: { マス: true }, xs: [自分の×], sureX: [分かった「置かない」], wrong, mistakes, techs, hints }
+
+export function lampLeft(sc) {
+  return sc.puzzle.lamps.filter((i) => !sc.placed[i]).length;
+}
+
+// 灯りを置く。答えでなければミスで、そのマスは確かな「置かない」になる。
+export function scrollLamp(state, i) {
+  const sc = state.dojo?.scroll;
+  if (!sc || sc.kind !== 'lamps') return { state, ok: false };
+  const p = sc.puzzle;
+  if (!(i >= 0 && i < p.w * p.h) || p.wall[i] || sc.placed[i] || sc.sureX.includes(i) || sc.xs.includes(i)) return { state, ok: false };
+  const s = clone(state);
+  const t = s.dojo.scroll;
+  const events = [];
+  if (p.lamps.includes(i)) {
+    t.placed[i] = true;
+  } else {
+    t.wrong.push(i);
+    t.sureX.push(i);
+    t.mistakes += 1;
+    events.push({ type: 'miss' });
+  }
+  finishIfDone(s, events);
+  return { state: s, ok: true, events };
+}
+
+function revealTech7d(t, tech, i) {
+  const p = t.puzzle;
+  const w = p.w, h = p.h;
+  const x = i % w, y = Math.floor(i / w);
+  const cellsAt = (list) => list.filter(([cx, cy]) => cx >= 0 && cy >= 0 && cx < w && cy < h).map(([cx, cy]) => cy * w + cx);
+  const row = Array.from({ length: w }, (_, k) => [k, y]);
+  if (t.kind === 'rooms') {
+    const place = (cells) => {
+      for (const c of cells) {
+        const k = roomAt(p, c);
+        if (k >= 0 && !t.placed.includes(k)) t.placed.push(k);
+      }
+    };
+    if (tech === 'ookami') place(cellsAt([[x, y]]));
+    else if (tech === 'hinosei') place(cellsAt([[x, y], [x + 1, y]]));
+    else if (tech === 'kari') place(cellsAt([[x, y], [x, y + 1]]));
+    else if (tech === 'ryuu') place(cellsAt(row));
+    else if (tech === 'iwamori') { const r = p.rooms[roomAt(p, i)]; t.hints.push({ tech, at: i, value: r.w * r.h }); }
+    else return false;
+    return true;
+  }
+  const reveal = (cells) => {
+    for (const c of cells) {
+      if (p.wall[c] || t.placed[c] || t.sureX.includes(c)) continue;
+      t.xs = t.xs.filter((j) => j !== c);
+      if (p.lamps.includes(c)) t.placed[c] = true;
+      else t.sureX.push(c);
+    }
+  };
+  if (tech === 'dokuba') reveal(cellsAt([[x, y], [x + 1, y]]));
+  else if (tech === 'kemuri') reveal(cellsAt([[x, y], [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]));
+  else if (tech === 'ansatsu') reveal(cellsAt(row));
+  else if (tech === 'kagebunshin') reveal(cellsAt([[x, y], [w - 1 - x, h - 1 - y]]));
+  else if (tech === 'kagenui') {
+    const around = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) around.push([x + dx, y + dy]);
+    t.hints.push({ tech, at: i, value: cellsAt(around).filter((c) => p.lamps.includes(c)).length });
   } else return false;
   return true;
 }

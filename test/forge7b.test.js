@@ -14,7 +14,7 @@ function forgeOpen() {
 }
 
 test('格3・4 は 3×3 の9マス、集中力24。素材は 270・810', () => {
-  assert.equal(GEAR.tierMax, 4);
+  assert.ok(GEAR.tierMax >= 4); // 7d で格6まで
   assert.deepEqual([bandOf(3).w, bandOf(3).h, bandOf(4).cap], [3, 3, 24]);
   assert.deepEqual([gearCost(3), gearCost(4)], [270, 810]);
   for (const [kind, def] of Object.entries(GEAR_KINDS)) {

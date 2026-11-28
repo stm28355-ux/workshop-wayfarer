@@ -9,7 +9,8 @@ import { TICKS_PER_SEC, SPLIT, EXITS } from '../data/balance.js';
 
 const $ = (id) => document.getElementById(id);
 const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
-const BRANCH_NAMES = { all: '全部', 受け: '受け', 返し: '返し', 息吹: '息吹' };
+// 門下生の枝の呼び名。all 以外は枝の名前そのまま（流派を足しても undefined にならないように）
+const BRANCH_NAMES = { all: '全部' };
 // 帳簿の木人：地域の壁に合わせる
 const DUMMY_OF = { 1: 'plain', 2: 'swarm', 3: 'shell', 4: 'plain', 5: 'regen', 6: 'plain' };
 const DUMMY_NAME = { plain: '素', swarm: '群れ', shell: '殻', regen: '回復' };
@@ -80,7 +81,7 @@ export function createAutoUI({ get, set, log }) {
     lastDisciple = key;
     el.innerHTML = `<p><b>門下生</b>：${doing}</p>` +
       `<p class="small">${Math.round(discipleTicks(s) / TICKS_PER_SEC)}秒に1枚・熟練2。解いた ${s.stats.discipleScrolls ?? 0}枚。どの枝から：` +
-      DISCIPLE_BRANCHES.map((b) => `<button type="button" class="mini" data-wact="branch" data-branch="${b}" aria-pressed="${w.branch === b}">${BRANCH_NAMES[b]}</button>`).join(' ') + '</p>' +
+      DISCIPLE_BRANCHES.map((b) => `<button type="button" class="mini" data-wact="branch" data-branch="${b}" aria-pressed="${w.branch === b}">${BRANCH_NAMES[b] ?? b}</button>`).join(' ') + '</p>' +
       `<p class="small quiet">解ける形：${shapes.length ? shapes.join('・') : 'まだない'}</p>`;
   }
   $('disciple').addEventListener('click', (e) => {
