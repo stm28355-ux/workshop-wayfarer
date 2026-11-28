@@ -9,10 +9,9 @@
 <body>
 <header class="top">
   <h1>Workshop Wayfarer</h1>
-  <span class="tag">試作：冒険・マージの盤・打ち分け・道場</span>
   <nav class="tools">
     <button type="button" id="btn-pause" data-act="pause">一時停止</button>
-    <button type="button" id="btn-ledger" data-act="ledger">帳簿</button>
+    <button type="button" id="btn-ledger" data-act="ledger">旅日記</button>
     <button type="button" id="btn-help" data-act="help">遊び方</button>
     <button type="button" id="btn-reset" data-act="reset">はじめから</button>
   </nav>
@@ -20,71 +19,72 @@
 
 <main id="app">
   <section class="band" data-ui="adventure" aria-label="冒険">
-    <div class="row hero-row">
-      <label class="region">地域
-        <select id="region" data-act="region"></select>
-      </label>
-      <span id="region-note" class="quiet"></span>
-      <span id="hero-level" class="strong"></span>
-      <span class="meter-wrap"><span class="meter hp"><span id="hp-bar"></span></span><span id="hp-text" class="num"></span></span>
-      <span id="xp-text" class="quiet num"></span>
+    <div class="hero-panel">
+      <div class="row hero-row">
+        <label class="region">地域
+          <select id="region" data-act="region"></select>
+        </label>
+        <span id="region-note" class="quiet"></span>
+      </div>
+      <p id="hero-level" class="strong"></p>
+      <div class="meter-row"><span class="label">HP</span><span class="meter hp"><span id="hp-bar"></span></span><span id="hp-text" class="num"></span></div>
+      <div class="meter-row"><span class="label">旅支度</span><span class="meter prep"><span id="prep-bar"></span></span><span id="prep-text" class="num"></span></div>
+      <div class="meter-row"><span class="label">経験</span><span class="meter xp"><span id="xp-bar"></span></span><span id="xp-text" class="num"></span></div>
+      <div class="fight-line" id="fight-line"></div>
     </div>
-    <div class="row">
-      <span class="label">支度</span>
-      <span class="meter prep"><span id="prep-bar"></span></span>
-      <span id="prep-text" class="num"></span>
-    </div>
-    <div class="row">
-      <span class="label">道</span>
+    <div class="scene" id="scene" aria-label="戦いの絵">
+      <div class="scene-bg" id="scene-bg"></div>
+      <div class="scene-hero" id="scene-hero"></div>
+      <div class="scene-enemy" id="scene-enemy"></div>
+      <div class="scene-fx" id="scene-fx" aria-hidden="true"></div>
+      <div class="scene-top">
+        <span id="road-text" class="num scene-tag"></span>
+        <span class="scene-foe"><span id="fight-name" class="fight-name"></span>
+          <span class="meter enemy" id="enemy-meter"><span id="enemy-bar"></span></span>
+          <span id="enemy-text" class="num"></span></span>
+      </div>
       <span class="road" id="road">
         <span class="road-best" id="road-best"></span>
         <span class="road-hero" id="road-hero"></span>
         <span class="road-boss" title="ボス">◆</span>
       </span>
-      <span id="road-text" class="num"></span>
     </div>
-    <div class="row fight-row">
-      <span id="fight-name" class="fight-name"></span>
-      <span class="meter enemy" id="enemy-meter"><span id="enemy-bar"></span></span>
-      <span id="enemy-text" class="num"></span>
-    </div>
-    <div class="row fight-line" id="fight-line"></div>
     <ol id="log" class="log" aria-live="polite"></ol>
   </section>
 
   <nav class="stage-tabs" id="stage-tabs" role="tablist" aria-label="段" hidden>
-    <button type="button" role="tab" id="tab-1" data-act="tab" data-tab="1" aria-selected="true">段1 マージ</button>
-    <button type="button" role="tab" id="tab-2" data-act="tab" data-tab="2" aria-selected="false">段2 打ち分け</button>
-    <button type="button" role="tab" id="tab-3" data-act="tab" data-tab="3" aria-selected="false" hidden>段3 道場</button>
+    <button type="button" role="tab" id="tab-1" data-act="tab" data-tab="1" aria-selected="true">荷車</button>
+    <button type="button" role="tab" id="tab-2" data-act="tab" data-tab="2" aria-selected="false">鍛冶場</button>
+    <button type="button" role="tab" id="tab-3" data-act="tab" data-tab="3" aria-selected="false" hidden>修練場</button>
   </nav>
 
-  <section class="stage" id="stage" data-tab="1" aria-label="段1 マージの盤と段2 打ち分け">
+  <section class="stage" id="stage" data-tab="1" aria-label="荷車と鍛冶場">
     <div class="board-side">
-      <h2>段1 マージの盤</h2>
-      <div id="board" class="board" role="grid" aria-label="マージの盤"></div>
+      <h2>荷車</h2>
+      <div id="board" class="board" role="grid" aria-label="荷車"></div>
       <p id="selected" class="selected"></p>
     </div>
-    <div class="forge-side" id="forge-side" data-ui="stage2" aria-label="段2 打ち分け">
-      <div class="mid-head"><h2>段2 打ち分け</h2><button type="button" class="mini wide mid-go" data-mid="dojo" hidden>段3 道場へ</button></div>
-      <p id="forge-locked" class="quiet">地域1のボスを倒すと開く。装備作りの出口に入れた素材で、武器・防具・アクセサリーを打つ。</p>
+    <div class="forge-side" id="forge-side" data-ui="stage2" aria-label="鍛冶場">
+      <div class="mid-head"><h2>鍛冶場</h2><button type="button" class="mini wide mid-go" data-mid="dojo" hidden>修練場へ</button></div>
+      <p id="forge-locked" class="quiet">地域1のボスを倒すと開く。使い道「鍛冶の材料」に入れた素材で、武器・防具・アクセサリーを打つ。</p>
       <div id="forge-body" hidden>
-        <div id="stock" class="stock" aria-label="装備作りにたまった素材"></div>
+        <div id="stock" class="stock" aria-label="鍛冶の材料にたまった素材"></div>
         <div id="forge-main"></div>
         <div id="gear" class="gear"></div>
       </div>
     </div>
-    <div class="dojo-side" id="dojo-side" data-ui="stage3" aria-label="段3 道場">
-      <div class="mid-head"><h2>段3 道場</h2><button type="button" class="mini wide mid-go" data-mid="forge">段2 打ち分けへ</button></div>
+    <div class="dojo-side" id="dojo-side" data-ui="stage3" aria-label="修練場">
+      <div class="mid-head"><h2>修練場</h2><button type="button" class="mini wide mid-go" data-mid="forge">鍛冶場へ</button></div>
       <p id="dojo-locked" class="quiet">地域2のボスを倒すと開く。巻物を解いてスキルツリーの節を上げる。</p>
       <div id="disciple" class="disciple" hidden></div>
       <div id="dojo-body" hidden></div>
     </div>
     <div class="exit-side">
-      <h2>出口</h2>
+      <h2>使い道</h2>
       <div id="exits" class="exits"></div>
       <div id="split" class="split" hidden></div>
       <div id="workshop" class="workshop" hidden></div>
-      <p class="rates">毎分　拾う <b id="rate-pick" class="num">0</b>　合わせた <b id="rate-merge" class="num">0</b>　あふれ <b id="rate-over" class="num">0</b></p>
+      <p class="rates">毎分　拾う <b id="rate-pick" class="num">0</b>　まとめた <b id="rate-merge" class="num">0</b>　あふれ <b id="rate-over" class="num">0</b></p>
       <p class="version">版 <span id="version"></span><span id="speed-note"></span></p>
     </div>
   </section>
@@ -93,7 +93,7 @@
 <div id="ghost" class="ghost" hidden></div>
 
 <dialog id="ledger" class="ledger" aria-labelledby="ledger-title">
-  <h2 id="ledger-title">帳簿</h2>
+  <h2 id="ledger-title">旅日記</h2>
   <div id="ledger-body"></div>
   <form method="dialog"><button type="submit">閉じる</button></form>
 </dialog>
@@ -107,17 +107,17 @@
 <dialog id="help" aria-labelledby="help-title">
   <h2 id="help-title">遊び方</h2>
   <ul>
-    <li>勇者は止まらず道を進み、敵と自動で戦う。倒した敵の落とし物が<b>盤</b>に出る。</li>
-    <li>物を同じ物（同じ種類・同じランク）の<b>上に重ねる</b>と合わさる。重ねた物と、重ねた先につながった同じ物を合わせて<b>3個</b>なら上のランク1個、<b>5個</b>なら上のランク2個。ランクが1つ上がると価値は3倍。3個は損得なしで場所が空き、5個は2割の得。</li>
-    <li>物は<b>ドラッグ</b>で動かす（押してから動かす先を押してもよい）。空きマスに置くと動くだけで、隣に並べても合わさらない。違う物の上に置くと入れ替わる。拾っただけでも合わさらない。</li>
-    <li>盤の物を<b>出口</b>へ入れる：<b>支度</b>（冒険を続けられる時間が伸びる）、<b>育てる</b>（経験。レベル1つで攻撃と HP が8%伸びる）、<b>装備作り</b>（打ち分けの素材と燃料）、<b>工房</b>（盤を広げる・職人を鍛える。地域1のボスの後に開く）。</li>
-    <li>勇者は1秒に20歩進む。出発のときの支度は30秒ぶん。支度が切れるか倒れると村へ帰り、3秒待って入口から出発し直す。倒れたときは支度の残りを失う。</li>
-    <li>盤がいっぱいのときに拾った物は、そのまま支度に入る（あふれ）。損をしている印。</li>
+    <li>勇者は止まらず道を進み、敵と自動で戦う。倒した敵の落とし物が<b>荷車</b>に出る。</li>
+    <li>物を同じ物（同じ種類・同じランク）の<b>上に重ねる</b>とまとまる。重ねた物と、重ねた先につながった同じ物を合わせて<b>3個</b>なら上のランク1個、<b>5個</b>なら上のランク2個。ランクが1つ上がると価値は3倍。3個は損得なしで場所が空き、5個は2割の得。</li>
+    <li>物は<b>ドラッグ</b>で動かす（押してから動かす先を押してもよい）。空きマスに置くと動くだけで、隣に並べてもまとまらない。違う物の上に置くと入れ替わる。拾っただけでもまとまらない。</li>
+    <li>荷車の物を<b>使い道</b>へ入れる：<b>旅支度</b>（冒険を続けられる時間が伸びる）、<b>鍛錬</b>（経験。レベル1つで攻撃と HP が8%伸びる）、<b>鍛冶の材料</b>（鍛冶場の素材と燃料）、<b>工房</b>（荷車を広げる・職人を鍛える。地域1のボスの後に開く）。</li>
+    <li>勇者は1秒に20歩進む。出発のときの旅支度は30秒ぶん。旅支度が切れるか倒れると村へ帰り、3秒待って入口から出発し直す。倒れたときは旅支度の残りを失う。</li>
+    <li>荷車がいっぱいのときに拾った物は、そのまま旅支度に入る（あふれ）。損をしている印。</li>
     <li>道の半分から先の敵は、落とし物のランクが1つ上がる（奥まで行くほど素材が速くたまる）。</li>
     <li>地域6「魔王の城」の敵には<b>属性</b>がある。弱点の属性（火の敵←水・氷の敵←火・雷の敵←風・水の敵←雷）の技は1.5倍、同じ属性の技は半分。水をまとった技は水の技になる。道の敵は 火（殻）・氷（盾）・雷（群れ）・水（回復）の順に変わり、魔王は15秒ごとに属性が変わる。魔王を倒すと終わりの記録が出る（そのまま続けて遊べる）。</li>
     <li>道の終わり（◆）のボスを倒すのが目標。画面を閉じている間や裏のタブの間は止まる。</li>
   </ul>
-  <h3>段3 道場（地域2のボスの後）</h3>
+  <h3>修練場（地域2のボスの後）</h3>
   <ul>
     <li>守りの流派のスキルツリーの節を選び、<b>巻物</b>を開く。数字は、まわり8マス（十字の巻物は上下左右に2マスずつ）の罠の数。罠でないマスを全部開ければ解けた。どの巻物も当てずっぽうなしに推理だけで解ける。</li>
     <li>解くと<b>熟練</b>3（ミス1回につき −1、最低1）。熟練2で節が1段上がる（5段まで）。節が 1/5 になると次の節が開く。</li>
@@ -130,7 +130,7 @@
     <li><b>隠密の流派</b>（地域4のボスの後）の巻物は<b>灯り</b>。白いマスに灯りを置いて全部照らす。灯りは縦横に壁か端まで照らし、灯りどうしは照らし合わない。壁の数字は上下左右に接する灯りの数。置き間違いはミス、×は自分用の印。変えは <b>斜めの灯り</b>・<b>短い灯り</b>（2マスまで）・<b>まわりの数</b>（壁の数字はまわり8マス）。</li>
     <li><b>奥義</b>の節は、その流派の技の節のうち2つが <b>3/5</b> になると開く（前の決まりで開いて熟練が入っている奥義はそのまま）。</li>
   </ul>
-  <h3>技の並び（道場の中）</h3>
+  <h3>技の並び（修練場の中）</h3>
   <ul>
     <li>戦いでは<b>普通の攻撃</b>の合間に、並べた<b>札</b>を左から順に使う。最後の札の後は<b>積み直し</b>（武器の秒数）で、その間も普通の攻撃。並びが空なら普通の攻撃だけ。</li>
     <li>札の時間は「振り」（武器の攻撃1回ぶん）。<b>修飾</b>（溜め）はたまって次の技に掛かり、頭に戻っても消えない。<b>条件</b>（傷の構え）は合わなければ次の1枚を飛ばす。</li>
@@ -140,7 +140,7 @@
     <li>召喚と隠密の札：狼・火の精・竜を呼ぶ（<b>召喚獣</b>：数秒のあいだ別に攻撃し、1回ずつ盾を削る）・岩の守り手（敵の攻撃3回を受け持つ）・群れ呼び（修飾：次の召喚は2体）・呼んでいれば（条件）・号令（修飾：次の技×1.5）・狩り（印）・毒の刃と毒を塗る（<b>毒</b>：毎秒削り、毒の間は敵が回復しない）・影縫い（敵を2秒止める）・不意を突く（条件：止まっていれば）・煙玉（2回かわす）・忍び（修飾：次の技が盾に防がれない）・暗殺（当てた後に3割以下なら倒す）・影分身。沼地の敵は<b>回復</b>するので、毒で止めるか短い時間に注ぐ。</li>
     <li>魔法と弓の札：火球（燃焼：3秒ごとに削る）・氷の槍（2回で<b>凍結</b>、濡れていれば1回。凍った敵は動かず、強斬り・盾打ち・剣盾・氷の矢が3倍）・雷撃（<b>感電</b>：盾を1枚はがし、次の3回の普通の攻撃が群れの隣にも）・水をまとう（修飾：次の技に<b>濡れ</b>。濡れると火は半分）・二重詠唱（修飾：次の技を2回）・凍っていれば（条件）・連射（5回に分けて当てる）・狙い撃ち（<b>印</b>：受けるダメージ＋20%）・印があれば（条件）・風の矢（燃焼を群れに広げる）・貫き（修飾：殻を無視）・追い撃ち（<b>引き金</b>：次の技で倒したら、その次の札を次の敵へすぐ）。</li>
   </ul>
-  <h3>段2 打ち分け（地域1のボスの後）</h3>
+  <h3>鍛冶場（地域1のボスの後）</h3>
   <ul>
     <li><b>素材</b>で作れる物が決まる：鉄鉱・銅鉱からは武器と防具、炎・石の欠片からはアクセサリー。<b>格</b>n を打つと素材を 30×3^(n−1) 使う（格1は30、格2は90）。</li>
     <li>同じ物で格が同じか下を打つと、数値が<b>加算</b>される（格ごとに4回まで）。格が上を打つと、加算を全部引き継いで<b>格上げ</b>。</li>
@@ -152,15 +152,15 @@
     <li>出来は基本の50〜100%（会心は120%）。武器は攻撃、鎧は HP、盾は1回に受けるダメージを引く。アクセサリーは持っている物が全部効く。</li>
     <li><b>格3・4</b> は 3×3 の9マス（集中力24まで）。叩ける回数が足りないので、何マスもまとめて伸ばす叩き方が要る。燃料に入れた欠片で叩き方が増える：氷＝<b>細打ち</b>（1マス＋1、温度に関係なく）、石＝<b>均し</b>（1マス−1）、風＝<b>横薙ぎ</b>（横1列）、雷＝<b>十字打ち</b>（十字5マス）。</li>
     <li>魔銀は温度が1段下がるたびに全部のマスが1下がる。雷は1段で2回しか叩けない。魔銀の杖は積み直し2秒、魔銀の衣・氷の首飾りは受けるダメージ −%、風の羽は攻撃の速さ ＋%、雷の耳飾りは札の時間 −%（割合の合計には上限：−60%・＋60%・−50%）。</li>
-    <li>素材と燃料が足りて打てる物があると、出口「装備作り」と段2のタブに「打てる」の数が出る。打ち分けの上の「今打てる物」を押すと、その物を打つ準備になる。</li>
-    <li>地域2のボスの後は<b>マージの職人</b>が盤を合わせ、地域3のボスの後は<b>打ち分けの職人</b>が、手で出した一番の手順で打ち続ける。</li>
+    <li>素材と燃料が足りて打てる物があると、使い道「鍛冶の材料」と鍛冶場のタブに「打てる」の数が出る。鍛冶場の上の「今打てる物」を押すと、その物を打つ準備になる。</li>
+    <li>地域2のボスの後は<b>まとめ職人</b>が荷車の物をまとめ、地域3のボスの後は<b>鍛冶職人</b>が、手で出した一番の手順で打ち続ける。</li>
   </ul>
-  <h3>任せる（門下生・振り分け）と帳簿</h3>
+  <h3>任せる（門下生・振り分け）と旅日記</h3>
   <ul>
-    <li>マージの職人は、工房の「5個を待つ」を入れると5個そろうまで合わせない（空きが2マス以下になったら3個でも合わせる）。</li>
+    <li>まとめ職人は、工房の「5個を待つ」を入れると5個そろうまでまとめない（空きが2マス以下になったら3個でもまとめる）。</li>
     <li>地域4のボスの後は<b>門下生</b>が、90秒に1枚（工房で速くなる）巻物を解く（熟練2）。解けるのは、あなたが手で一度解いた形（変えルールの組み合わせと盤の大きさ）だけ。選んだ枝の中で、段の一番低い節から。あなたが解いている節は取らない。</li>
-    <li>地域5のボスの後は<b>振り分け</b>が、出すランク以上の物を3秒に1個、出口へ入れる。どの出口かは、入れた価値の合計が決めた割合（10%刻み）に一番足りない所。盤がいっぱいで出せる物がなければ、一番低い物を支度へ。選んでいる物・ドラッグしている物には触らない。</li>
-    <li>上の<b>帳簿</b>で、予定表の目安（その地域を出るときの時間・レベル・格・枠）と今の値、地域ごとの出発と帰った理由、出口に入れた価値などが見られる。</li>
+    <li>地域5のボスの後は<b>振り分け</b>が、出すランク以上の物を3秒に1個、使い道へ入れる。どの使い道かは、入れた価値の合計が決めた割合（10%刻み）に一番足りない所。荷車がいっぱいで出せる物がなければ、一番低い物を旅支度へ。選んでいる物・ドラッグしている物には触らない。</li>
+    <li>上の<b>旅日記</b>で、予定表の目安（その地域を出るときの時間・レベル・格・枠）と今の値、地域ごとの出発と帰った理由、使い道に入れた価値などが見られる。</li>
   </ul>
   <form method="dialog"><button type="submit">閉じる</button></form>
 </dialog>

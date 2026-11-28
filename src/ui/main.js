@@ -13,6 +13,8 @@ import { planAfterRegion2 } from '../core/plan.js';
 import { SWORD_TREE } from '../data/sword.js';
 import { activeCards, enemyElem, setLineup } from '../core/lineup.js';
 import { CARDS, ELEMENT_NAMES_JA, WEAKNESS } from '../data/cards.js';
+import { heroArt, enemyArt, materialArt, exitArt } from '../art/sprites.js';
+import { sceneArt } from '../art/scenes.js';
 
 const params = new URLSearchParams(location.search);
 const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
@@ -32,7 +34,7 @@ const SPEED = Math.min(20, Math.max(0.25, Number(params.get('speed')) || 1));
 const TEST = ['open', 'dojo', 'line', 'all', 'r3', 'auto', 'sword', 'forge3', 'magic', 'summon', 'r6'].includes(params.get('test')) ? params.get('test') : null;
 const SLOT = TEST ? `test-${TEST}` : undefined;
 const TICK_MS = 1000 / TICKS_PER_SEC;
-const EXIT_NAMES = { prep: '支度', grow: '育てる', forge: '装備作り', workshop: '工房' };
+const EXIT_NAMES = { prep: '旅支度', grow: '鍛錬', forge: '鍛冶の材料', workshop: '工房' };
 
 const $ = (id) => document.getElementById(id);
 
@@ -223,6 +225,7 @@ function handle(events) {
       if (name) log(`${name}が開いた`, 'good');
       if (e.key === 'ending') showEnding(); // 魔王を倒した（工程7e）
     } else if (e.type === 'line') {
+      if (e.what === 'card' && !e.skip && CARDS[e.id]) spawnFx(CARDS[e.id].name, 'card'); // 戦いの絵に札の名前
       // 技の並びの効き（判定表 第9回 C5）：戦いごとに数える
       if (e.what === 'dodge' || e.what === 'focus') fightNotes.dodge += 1;
       if (e.what === 'parry') fightNotes.parry += 1;
@@ -237,7 +240,7 @@ function handle(events) {
     } else if (e.type === 'craft' && e.auto) {
       log(craftText(e));
     } else if (e.type === 'split') {
-      if (e.full) log('盤がいっぱい：振り分けが一番低い物を支度へ');
+      if (e.full) log('荷車がいっぱい：振り分けが一番低い物を旅支度へ');
     }
   }
   if (overflow) {
@@ -245,7 +248,7 @@ function handle(events) {
     const top = meta.log[0];
     const total = (top?.over ?? 0) + overflow;
     if (top?.over) meta.log.shift();
-    meta.log.unshift({ text: `盤がいっぱい：拾った物は支度へ（続けて ${total}個）`, kind: 'bad', over: total });
+    meta.log.unshift({ text: `荷車がいっぱい：拾った物は旅支度へ（続けて ${total}個）`, kind: 'bad', over: total });
     meta.log.length = Math.min(meta.log.length, 4);
   }
   meta.best[state.run.region] = Math.max(meta.best[state.run.region] ?? 0, state.run.step);
@@ -254,8 +257,8 @@ function handle(events) {
 const fightNotes = { dodge: 0, parry: 0 };
 function handleReturn(e) {
   meta.best[e.region] = Math.max(meta.best[e.region] ?? 0, e.step);
-  if (e.reason === 'prep') log(`支度が切れて村へ帰った（${e.step}歩）。3秒後に出発`);
-  else if (e.reason === 'down') log(`倒れて村へ帰った（${e.step}歩）。支度の残りは失った`, 'bad');
+  if (e.reason === 'prep') log(`旅支度が切れて村へ帰った（${e.step}歩）。3秒後に出発`);
+  else if (e.reason === 'down') log(`倒れて村へ帰った（${e.step}歩）。旅支度の残りは失った`, 'bad');
 }
 
 // 終わりの窓（工程7e）：魔王を初めて倒したときに、ここまでの記録を出す。そのまま続けて遊べる。
@@ -269,12 +272,12 @@ function showEnding() {
     ['遊んだ時間', `${Math.floor(min / 60)}時間${min % 60}分`],
     ['レベル', `${s.hero.level}（攻撃 ${Math.round(h.atk)}・HP ${Math.round(h.maxHp)}）`],
     ['武器と防具の格', `${tier('weapon')}・${tier('armor')}`],
-    ['道場の節', `${nodes}節（巻物 ${s.stats.scrolls ?? 0}枚・門下生 ${s.stats.discipleScrolls ?? 0}枚）`],
+    ['修練場の節', `${nodes}節（巻物 ${s.stats.scrolls ?? 0}枚・門下生 ${s.stats.discipleScrolls ?? 0}枚）`],
     ['打った装備', `${s.stats.crafted ?? 0}回（職人 ${s.stats.autoCrafted ?? 0}回・会心 ${s.stats.crits ?? 0}回）`],
     ['倒した敵', `${s.stats.kills}体（出発 ${s.stats.departures}回・倒れた ${s.stats.returns?.down ?? 0}回）`],
-    ['合わせた回数', `${s.stats.merges}回（職人 ${s.stats.crafterMerges}回）`],
+    ['まとめた回数', `${s.stats.merges}回（職人 ${s.stats.crafterMerges}回）`],
   ];
-  $('ending-body').innerHTML = '<p>工房の旅人は、魔王の城の奥で魔王を倒した。マージの盤と打ち分けと道場で育てた力の記録：</p>' +
+  $('ending-body').innerHTML = '<p>工房の旅人は、魔王の城の奥で魔王を倒した。荷車と鍛冶場と修練場で育てた力の記録：</p>' +
     `<table class="ledger-table"><tbody>${rows.map(([k, v]) => `<tr><th>${k}</th><td class="num">${v}</td></tr>`).join('')}</tbody></table>` +
     '<p class="small quiet">この後も、どの地域へも行けて、巻物と装備を育て続けられる。</p>';
   if (!$('ending').open) $('ending').showModal();
@@ -283,11 +286,11 @@ function showEnding() {
 function unlockName(key) {
   const [what, arg] = key.split(':');
   if (what === 'region') return `地域${arg}「${region(Number(arg)).name}」`;
-  if (key === 'exit:workshop') return '工房の出口';
-  if (key === 'crafter:merge') return 'マージの職人';
-  if (key === 'crafter:forge') return '打ち分けの職人';
-  if (key === 'stage:forge') return '段2 打ち分け';
-  if (key === 'stage:dojo') return '段3 道場';
+  if (key === 'exit:workshop') return '使い道「工房」';
+  if (key === 'crafter:merge') return 'まとめ職人';
+  if (key === 'crafter:forge') return '鍛冶職人';
+  if (key === 'stage:forge') return '鍛冶場';
+  if (key === 'stage:dojo') return '修練場';
   if (key === 'disciple') return '門下生';
   if (key === 'split') return '振り分け';
   if (key === 'ending') return null; // 終わりの窓で知らせる
@@ -343,7 +346,7 @@ function doMove(from, to) {
   const a = state.board.cells[from];
   const b = state.board.cells[to];
   if (!r.merged && a && b && a.kind === b.kind && a.rank === b.rank) {
-    log('重ねて3個以上にならないと合わさらない');
+    log('重ねて3個以上にならないとまとまらない');
   }
   state = r.state;
   selected = null;
@@ -465,7 +468,8 @@ $('btn-reset').addEventListener('click', () => {
 // ---- 描く ----
 function itemHtml(item) {
   const k = KINDS[item.kind];
-  return `<span class="item r${item.rank}" style="--c:${k.color}"><b>${k.mark}</b><i>${item.rank}</i></span>`;
+  // 絵柄 A の素材の絵（判定表 第22回 Q3：文字を絵に置き換え、ランクの数字は右下に残す）
+  return `<span class="item r${item.rank}" style="--c:${k.color}">${materialArt(item.kind, 32)}<i>${item.rank}</i></span>`;
 }
 
 let lastBoardKey = '';
@@ -515,7 +519,7 @@ function renderExits() {
   lastExitsKey = key;
   $('exits').innerHTML = parts.map(([x, sub, gain, open]) =>
     `<button type="button" class="exit${open ? '' : ' locked'}" data-exit="${x}" aria-disabled="${!open}">` +
-    `<span class="exit-name">${EXIT_NAMES[x]}</span><span class="exit-sub num">${sub}</span><span class="exit-gain num">${gain}</span></button>`).join('');
+    `<span class="exit-art">${exitArt(x, 32)}</span><span class="exit-name">${EXIT_NAMES[x]}</span><span class="exit-sub num">${sub}</span><span class="exit-gain num">${gain}</span></button>`).join('');
 }
 
 function renderRegions() {
@@ -546,7 +550,8 @@ function render(now) {
   $('hero-level').textContent = `勇者 Lv${s.hero.level}　攻撃${Math.round(atk)}${attackTicks !== 10 ? `（${intervalText(attackTicks, TICKS_PER_SEC)}秒に1回）` : ''}`;
   setBar('hp-bar', run.hp / maxHp);
   $('hp-text').textContent = `HP ${Math.max(0, Math.ceil(run.hp))}/${Math.round(maxHp)}`;
-  $('xp-text').textContent = `経験 ${s.hero.xp}/${xpToNext(s.hero.level)}`;
+  $('xp-text').textContent = `${s.hero.xp}/${xpToNext(s.hero.level)}`;
+  setBar('xp-bar', s.hero.xp / xpToNext(s.hero.level));
 
   const prepTicks = run.prep / reg.drain;
   setBar('prep-bar', prepTicks / (180 * TICKS_PER_SEC));
@@ -555,7 +560,7 @@ function render(now) {
   const best = meta.best[run.region] ?? 0;
   $('road-hero').style.left = `${Math.min(1, run.step / reg.bossAt) * 100}%`;
   $('road-best').style.left = `${Math.min(1, best / reg.bossAt) * 100}%`;
-  $('road-text').textContent = `${run.step} / ${reg.bossAt} 歩（一番遠く ${best}）`;
+  $('road-text').textContent = `${reg.name}　${run.step} / ${reg.bossAt} 歩（一番遠く ${best}）`;
 
   const f = run.fight;
   if (f) {
@@ -568,7 +573,7 @@ function render(now) {
     const guardNote = hit < f.atk ? `（盾で${Math.round(hit * 10) / 10}に）` : '';
     $('enemy-text').textContent = `${Math.max(0, Math.ceil(f.hp))}/${f.maxHp}　攻撃${f.atk}${guardNote}${f.enemyTicks < 10 ? `×${Math.round(10 / f.enemyTicks)}回/秒` : ''}`;
   } else if (run.wait > 0) {
-    $('fight-name').textContent = `村で支度している（あと${Math.ceil(run.wait / TICKS_PER_SEC)}秒で出発）`;
+    $('fight-name').textContent = `村で旅支度している（あと${Math.ceil(run.wait / TICKS_PER_SEC)}秒で出発）`;
     $('enemy-meter').hidden = true;
     $('enemy-text').textContent = '';
   } else {
@@ -578,6 +583,7 @@ function render(now) {
   }
 
   renderFightLine(s);
+  renderScene(s);
 
   const logHtml = [0, 1, 2, 3].map((i) => {
     const l = meta.log[i];
@@ -596,14 +602,69 @@ function render(now) {
 
   const item = selected !== null ? s.board.cells[selected] : null;
   $('selected').textContent = item
-    ? `${itemName(item)}（価値${rankValue(item.rank)}）を選んでいる。出口か、重ねる先・動かす先を押す`
-    : '同じ物の上に重ねて合わせるか、出口へ入れる';
+    ? `${itemName(item)}（価値${rankValue(item.rank)}）を選んでいる。使い道か、重ねる先・動かす先を押す`
+    : '同じ物の上に重ねてまとめるか、使い道へ入れる';
 
   pruneRates();
   $('rate-pick').textContent = recent.pick.length;
   $('rate-merge').textContent = recent.merge.length;
   $('rate-over').textContent = recent.over.length;
   autoUI.render();
+}
+
+// ───── 戦いの絵（判定表 第23回 L1〜L3）─────
+// 歩いている間は背景が流れて勇者が足踏み、戦いでは打ち合う。当てた量と使った札の名前が浮く。
+let lastFoeKey = '';
+let lastFoeHp = null;
+let fxHeld = 0;
+let fxAt = 0;
+function spawnFx(text, cls = '') {
+  const box = $('scene-fx');
+  if (box.childElementCount > 8) return;
+  const el = document.createElement('span');
+  el.className = `dmg ${cls}`;
+  el.textContent = text;
+  box.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+function renderScene(s) {
+  const run = s.run;
+  const scene = $('scene');
+  const reg = run.region;
+  if (scene.dataset.region !== String(reg)) {
+    scene.dataset.region = String(reg);
+    $('scene-bg').innerHTML = sceneArt(reg) + sceneArt(reg);
+  }
+  if (!$('scene-hero').innerHTML) $('scene-hero').innerHTML = heroArt('stand', 64) + heroArt('walk', 64) + heroArt('strike', 64);
+  const f = run.fight;
+  const mode = run.wait > 0 ? 'resting' : f ? 'fighting' : 'walking';
+  if (scene.dataset.mode !== mode || paused) {
+    scene.dataset.mode = mode;
+    scene.classList.toggle('walking', mode === 'walking' && !paused);
+    scene.classList.toggle('fighting', mode === 'fighting' && !paused);
+  }
+  scene.style.setProperty('--atk', `${(heroStats(s).attackTicks / TICKS_PER_SEC).toFixed(2)}s`);
+  const foeKey = f ? `${reg}:${f.boss ? 'b' : 'e'}:${run.enemyIndex}` : '';
+  if (foeKey !== lastFoeKey) {
+    lastFoeKey = foeKey;
+    $('scene-enemy').innerHTML = f ? enemyArt(reg, f.boss, f.boss ? 84 : 56) : '';
+    lastFoeHp = f ? f.hp : null;
+    fxHeld = 0;
+  }
+  if (f && lastFoeHp !== null && f.hp < lastFoeHp) {
+    fxHeld += lastFoeHp - f.hp;
+    const now = performance.now();
+    if (now - fxAt > 220 && fxHeld >= 1) {
+      spawnFx(String(Math.round(fxHeld)));
+      fxHeld = 0;
+      fxAt = now;
+      const en = $('scene-enemy');
+      en.classList.remove('hit');
+      void en.offsetWidth;
+      en.classList.add('hit');
+    }
+  }
+  lastFoeHp = f ? f.hp : null;
 }
 
 // 技の並びの進みと状態（判定表 第9回 C5）
@@ -685,10 +746,10 @@ function renderTabs() {
   document.querySelector('.forge-side .mid-go').hidden = !dojoOpen;
   // 打てる物の数（判定表 第16回 D1）
   const n = forgeOpen ? craftable(state).length : 0;
-  const label = n ? `段2 打ち分け（打てる${n}）` : '段2 打ち分け';
+  const label = n ? `鍛冶場（打てる${n}）` : '鍛冶場';
   if ($('tab-2').textContent !== label) $('tab-2').textContent = label;
   const go = document.querySelector('.dojo-side .mid-go');
-  const goLabel = n ? `段2 打ち分けへ（打てる${n}）` : '段2 打ち分けへ';
+  const goLabel = n ? `鍛冶場へ（打てる${n}）` : '鍛冶場へ';
   if (go.textContent !== goLabel) go.textContent = goLabel;
   go.classList.toggle('can', n > 0);
   $('tab-2').classList.toggle('can', n > 0);

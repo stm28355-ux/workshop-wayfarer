@@ -40,7 +40,7 @@ export const SPLIT = Object.freeze({ everyTicks: 30, minRank: 3, maxRank: 6, rat
 export const WORKSHOP = Object.freeze({
   arm: { name: '職人の腕', base: 30, ratio: 3 },
   speed: { name: '職人の速さ', base: 20, ratio: 2 },
-  widen: { name: '盤を広げる', base: 50, ratio: 2 },
+  widen: { name: '荷車を広げる', base: 50, ratio: 2 },
   disciple: { name: '門下生の速さ', base: 40, ratio: 2 }, // 判定表 第11回 A4：90秒×0.8ずつ
 });
 

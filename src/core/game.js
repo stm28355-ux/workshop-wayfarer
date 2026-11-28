@@ -557,7 +557,7 @@ export function fuelTools(fuel) {
 
 // 打つ前の見通し。ok でなければ reason に理由。
 export function forgeCheck(state, { kind, slot, tier, fuel }) {
-  if (!isOpen(state, 'stage:forge')) return { ok: false, reason: '打ち分けは地域1のボスを倒すと開く' };
+  if (!isOpen(state, 'stage:forge')) return { ok: false, reason: '鍛冶場は地域1のボスを倒すと開く' };
   if (state.forge.session) return { ok: false, reason: '打っている途中' };
   if (!slotsOf(kind).includes(slot)) return { ok: false, reason: 'この素材では作れない' };
   if (!(tier >= 1) || tier > GEAR.tierMax || !bandOf(tier)) return { ok: false, reason: `格は${GEAR.tierMax}まで` };
@@ -702,9 +702,9 @@ export function widenTo(board) {
 export function upgradeCheck(state, what) {
   if (!WORKSHOP[what]) return { ok: false, reason: 'ない' };
   if (!state.open.exits.includes('workshop')) return { ok: false, reason: '工房はまだ開いていない' };
-  if ((what === 'arm' || what === 'speed') && !isOpen(state, 'crafter:merge')) return { ok: false, reason: 'マージの職人は地域2のボスで来る' };
+  if ((what === 'arm' || what === 'speed') && !isOpen(state, 'crafter:merge')) return { ok: false, reason: 'まとめ職人は地域2のボスで来る' };
   if (what === 'disciple' && !isOpen(state, 'disciple')) return { ok: false, reason: '門下生は地域4のボスで来る' };
-  if (what === 'widen' && !widenTo(state.board)) return { ok: false, reason: '盤はもう一番広い' };
+  if (what === 'widen' && !widenTo(state.board)) return { ok: false, reason: '荷車はもう一番広い' };
   const cost = upgradeCost(state, what);
   if (state.stock.workshop < cost) return { ok: false, reason: `工房の価値が足りない（${cost}要る）`, cost };
   return { ok: true, cost };
