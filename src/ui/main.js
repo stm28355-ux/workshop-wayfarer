@@ -1,6 +1,6 @@
 // 試作画面（工程3）：冒険・マージの盤・打ち分け・工房。ルールは src/core の関数を呼ぶだけ。
 import { APP_VERSION } from '../version.js';
-import { createGame, advance, feed, moveItem, chooseRegion, region, isOpen, restartRun, craftable } from '../core/game.js';
+import { createGame, advance, feed, moveItem, chooseRegion, region, isOpen, restartRun, craftable, retire } from '../core/game.js';
 import { xpToNext } from '../core/hero.js';
 import { heroStats, damageTaken, intervalText, applyCraft } from '../core/gear.js';
 import { rankValue } from '../core/rank.js';
@@ -259,6 +259,7 @@ function handleReturn(e) {
   meta.best[e.region] = Math.max(meta.best[e.region] ?? 0, e.step);
   if (e.reason === 'prep') log(`旅支度が切れて村へ帰った（${e.step}歩）。3秒後に出発`);
   else if (e.reason === 'down') log(`倒れて村へ帰った（${e.step}歩）。旅支度の残りは失った`, 'bad');
+  else if (e.reason === 'retire') log(`帰った（${e.step}歩）。3秒後に${region(state.nextRegion).name}へ出発`);
 }
 
 // 終わりの窓（工程7e）：魔王を初めて倒したときに、ここまでの記録を出す。そのまま続けて遊べる。
@@ -445,11 +446,15 @@ function markHover(x, y) {
   hoverEl?.classList.add('hover');
 }
 
-$('region').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-region]');
-  if (!b) return;
-  const r = chooseRegion(state, Number(b.dataset.region));
+$('region').addEventListener('change', (e) => {
+  const r = chooseRegion(state, Number(e.target.value));
   if (r.ok) state = r.state;
+});
+$('btn-retire').addEventListener('click', () => {
+  const r = retire(state);
+  if (!r.ok) return;
+  state = r.state;
+  handle(r.events);
 });
 $('btn-pause').addEventListener('click', () => {
   paused = !paused;
@@ -525,11 +530,11 @@ function renderExits() {
 }
 
 function renderRegions() {
-  const box = $('region');
+  const sel = $('region');
   const key = state.open.regions.join(',') + '|' + state.nextRegion;
-  if (box.dataset.key === key) return;
-  box.dataset.key = key;
-  box.innerHTML = state.open.regions.map((id) => `<button type="button" class="region-btn" data-region="${id}" aria-pressed="${id === state.nextRegion}">${region(id).name}</button>`).join('');
+  if (sel.dataset.key === key) return;
+  sel.dataset.key = key;
+  sel.innerHTML = state.open.regions.map((id) => `<option value="${id}"${id === state.nextRegion ? ' selected' : ''}>${region(id).name}</option>`).join('');
 }
 
 function setBar(id, ratio) {
@@ -548,10 +553,10 @@ function render(now) {
   const { atk, maxHp, attackTicks } = heroStats(s);
 
   renderRegions();
-  $('region-note').textContent = s.nextRegion !== run.region ? `次の出発から ${region(s.nextRegion).name}` : '';
+  $('region-note').textContent = s.nextRegion !== run.region ? `次の出発から ${region(s.nextRegion).name}（「帰る」ですぐ）` : '';
   $('hero-level').textContent = `勇者 Lv${s.hero.level}　攻撃${Math.round(atk)}${attackTicks !== 10 ? `（${intervalText(attackTicks, TICKS_PER_SEC)}秒に1回）` : ''}`;
   setBar('hp-bar', run.hp / maxHp);
-  $('hp-text').textContent = `HP ${Math.max(0, Math.ceil(run.hp))}/${Math.round(maxHp)}`;
+  $('hp-text').textContent = `${Math.max(0, Math.min(Math.round(maxHp), Math.ceil(run.hp)))}/${Math.round(maxHp)}`;
   $('xp-text').textContent = `${s.hero.xp}/${xpToNext(s.hero.level)}`;
   setBar('xp-bar', s.hero.xp / xpToNext(s.hero.level));
 
@@ -637,7 +642,7 @@ function renderScene(s) {
     scene.dataset.region = String(reg);
     $('scene-bg').innerHTML = sceneArt(reg) + sceneArt(reg);
   }
-  if (!$('scene-hero').innerHTML) $('scene-hero').innerHTML = heroArt('stand', 64) + heroArt('walk', 64) + heroArt('strike', 64);
+  if (!$('scene-hero').innerHTML) $('scene-hero').innerHTML = heroArt('stand', 64);
   const f = run.fight;
   const mode = run.wait > 0 ? 'resting' : f ? 'fighting' : 'walking';
   if (scene.dataset.mode !== mode || paused) {

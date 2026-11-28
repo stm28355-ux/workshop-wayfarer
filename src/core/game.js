@@ -491,6 +491,24 @@ export function restartRun(state) {
 }
 
 // 次に出発する地域を選ぶ（帰ったときから効く）。
+// 帰る（判定表 第25回 Q4：リタイアしてすぐ別の地域へ）：今の出発をやめて村へ帰り、選んでいる地域へ出発し直す。
+// 旅支度の残りは持ち越す（倒れたときと違って失わない）。帰った後は3秒待って出発。
+export function retire(state) {
+  const s = clone(state);
+  const events = [];
+  const left = s.run.prep;
+  s.stats.returns.retire = (s.stats.returns.retire ?? 0) + 1;
+  const rs = regionStats(s, s.run.region);
+  rs.retire = (rs.retire ?? 0) + 1;
+  events.push({ type: 'return', reason: 'retire', region: s.run.region, step: s.run.step });
+  s.run = newRun(s, s.nextRegion, PREP.waitTicks);
+  s.run.prep = Math.max(s.run.prep, left);
+  s.stats.departures += 1;
+  regionStats(s, s.run.region).departs += 1;
+  events.push({ type: 'depart', region: s.run.region });
+  return { state: s, ok: true, events };
+}
+
 export function chooseRegion(state, id) {
   if (!state.open.regions.includes(id)) return { state, ok: false };
   const s = clone(state);
