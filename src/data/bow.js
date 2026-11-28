@@ -25,7 +25,7 @@ export const BOW_TREE = Object.freeze([
 // 弓の修行中の技（巻物での手がかり）。戦いでの効きは src/data/cards.js。
 export const BOW_TECHS = Object.freeze({
   rensha: { name: '連射', text: '選んだマスから右へ3マスの答えが分かる' },
-  neraiuchi: { name: '狙い撃ち', text: '選んだマスの答えと、まわり8マスの鏡の数が分かる' },
+  neraiuchi: { name: '狙い撃ち', text: '選んだマスの答えと、まわり8マス（選んだマスは数えない）の鏡の数が分かる' },
   kazeya: { name: '風の矢', text: '選んだマスと上下のマスの答えが分かる' },
   ryuusei: { name: '流星', text: '選んだマスの行の答えが全部分かる' },
   kooriya: { name: '氷の矢', text: '選んだマスから右下の2×2の答えが分かる' },

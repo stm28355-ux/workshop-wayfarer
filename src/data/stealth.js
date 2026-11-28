@@ -25,7 +25,7 @@ export const STEALTH_TREE = Object.freeze([
 // 修行中の技（巻物での手がかり）。
 export const STEALTH_TECHS = Object.freeze({
   dokuba: { name: '毒の刃', text: '選んだマスと右のマスの答え（灯りか、置かないか）が分かる' },
-  kagenui: { name: '影縫い', text: '選んだマスのまわり8マスに灯りがいくつあるか分かる' },
+  kagenui: { name: '影縫い', text: '選んだマスのまわり8マス（選んだマスは数えない）に灯りがいくつあるか分かる' },
   kemuri: { name: '煙玉', text: '選んだマスと上下左右の答えが分かる' },
   ansatsu: { name: '暗殺', text: '選んだマスの行の答えが全部分かる' },
   kagebunshin: { name: '影分身', text: '選んだマスと、盤の向かい側のマスの答えが分かる' },

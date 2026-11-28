@@ -453,6 +453,7 @@ dialog li { margin-bottom: 6px; }
 .lc.x { color: var(--quiet); }
 .lc.sure { color: var(--ink); background: #1a1e24; }
 .lc.wrong { border-color: var(--bad); }
+.lc.x.lit, .lc.sure.lit { background: rgb(242 199 110 / 0.22); } /* ×のマスも照らされていれば明るく（第20回 Q2） */
 .lc .hint { position: absolute; left: 2px; bottom: 1px; font-style: normal; font-size: 0.6rem; color: var(--accent); font-weight: 600; }
 
 /* 魔法の巻物（属性の数独）・弓の巻物（鏡）判定表 第18回 */
