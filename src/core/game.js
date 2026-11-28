@@ -49,15 +49,22 @@ export function region(id) {
   return r;
 }
 
-// 道の i 体目（0から）の敵。
+// 道の半分から先の敵の数（判定表 第19回 Q7）。ここから先は落とし物のランクが1つ上がる。
+export function deepFrom(regionId) {
+  const r = region(regionId);
+  return Math.floor(r.bossAt / r.gap / 2);
+}
+
+// 道の i 体目（0から）の敵。道の奥ほど敵の HP が伸びるので、半分から先は落とし物のランク＋1（価値3倍）。
 export function enemyAt(regionId, i) {
   const r = region(regionId);
+  const d = r.drops[i % r.drops.length];
   return {
     hp: r.enemy.hp + Math.floor(r.enemy.hpStep * i),
     atk: r.enemy.atk + Math.floor(i / r.enemy.atkEvery),
     hits: r.enemy.hits ?? 1,
     traits: r.enemy.traits ?? null,
-    drop: r.drops[i % r.drops.length],
+    drop: i >= deepFrom(regionId) ? { ...d, rank: d.rank + 1 } : d,
   };
 }
 

@@ -168,7 +168,7 @@ export function createDojoUI({ get, set, log }) {
       r = scrollTech(s, ui.tech, i);
       ui.tech = null;
     } else if (sc.kind === 'sudo') {
-      r = ui.mode === 'note' ? scrollNote(s, i, ui.elem ?? 0) : scrollPlace(s, i, ui.elem ?? 0);
+      r = ui.mode === 'note' || asX ? scrollNote(s, i, ui.elem ?? 0) : scrollPlace(s, i, ui.elem ?? 0);
     } else if (sc.kind === 'beam') {
       if (asX || ui.mode === 'x') r = scrollMark(s, i);
       else r = scrollMirror(s, i, ui.mode === 'back' ? BACK : SLASH);
@@ -183,11 +183,32 @@ export function createDojoUI({ get, set, log }) {
     placeAct(Number(b.dataset.scell ?? b.dataset.bcell), false);
   });
   side.addEventListener('contextmenu', (e) => {
-    const b = e.target.closest('[data-bcell]');
+    const b = e.target.closest('[data-bcell], [data-scell]');
     if (!b) return;
     e.preventDefault();
-    placeAct(Number(b.dataset.bcell), true);
+    placeAct(Number(b.dataset.bcell ?? b.dataset.scell), true);
   });
+  // マウスホイールで押したときの中身を切り替える（判定表 第19回の一言）。盤の上だけ
+  side.addEventListener('wheel', (e) => {
+    const board = e.target.closest('.sudo-wrap, .beam-wrap, .nono, .mine-board');
+    const sc = get().dojo?.scroll;
+    if (!board || !sc) return;
+    e.preventDefault();
+    const step = e.deltaY > 0 ? 1 : -1;
+    const cycle = (list, cur) => list[(list.indexOf(cur) + step + list.length) % list.length];
+    if (sc.kind === 'sudo') {
+      ui.elem = ((ui.elem ?? 0) + step + sc.puzzle.n) % sc.puzzle.n;
+    } else if (sc.kind === 'beam') {
+      ui.mode = cycle(['slash', 'back', 'x'], ui.mode);
+    } else if (sc.kind === 'nono') {
+      ui.mode = cycle(sc.puzzle.colors === 2 ? ['paint1', 'paint2', 'x'] : ['paint1', 'x'], ui.mode);
+    } else {
+      ui.mode = cycle(['open', 'flag'], ui.mode);
+    }
+    ui.tech = null;
+    lastKey = '';
+    render();
+  }, { passive: false });
 
   // ───── 並びのドラッグ・ドロップ（判定表 第10回 Q2：マージの盤と同じように） ─────
   // 持っている札 → 枠：その枠に置く（空きの先なら後ろに足す）。枠 → 枠：入れ替える。枠 → 枠の外：外す。
@@ -450,9 +471,13 @@ export function createDojoUI({ get, set, log }) {
       `<button type="button" data-dact="mode" data-mode="note" aria-pressed="${ui.mode === 'note' && !ui.tech}">候補の印</button></span></div>`;
     h += '<div class="elems">' + ELEMENT_NAMES.slice(0, p.n).map((name, e) =>
       `<button type="button" class="elem e${e}" data-dact="elem" data-elem="${e}" aria-pressed="${ui.elem === e}">${name}</button>`).join('') + '</div>';
+    if (p.rules.includes('cycle')) {
+      const chip = (e) => `<span class="chip e${e}">${ELEMENT_NAMES[e]}</span>`;
+      h += `<div class="cycle-chips small">巡りの順：${[0, 1, 2, 3, 0].map(chip).join('<span class="arr">→</span>')}　（線の ● の端から矢印の向きに）</div>`;
+    }
     h += techBar(sc);
     h += sudoBoardHtml(sc);
-    h += '<p class="small quiet">属性を選んでからマスを押す。「候補の印」は小さいメモで、ミスにならない（もう一度押すと消える）。</p>';
+    h += '<p class="small quiet">属性を選んでからマスを押す。右クリックか「候補の印」で小さいメモ（ミスにならない。もう一度で消える）。盤の上でマウスホイールを回すと属性が変わる。</p>';
     h += quitHtml();
     return h;
   }
@@ -470,7 +495,8 @@ export function createDojoUI({ get, set, log }) {
       `<span class="mode">${[['slash', '╱を置く'], ['back', '╲を置く'], ['x', '×']].map(([m, t]) => `<button type="button" data-dact="mode" data-mode="${m}" aria-pressed="${ui.mode === m && !ui.tech}">${t}</button>`).join('')}</span></div>`;
     h += techBar(sc);
     h += beamBoardHtml(sc);
-    h += '<p class="small quiet">光は今置いてある鏡でその場で通る（色の付いたマス）。届いた的は ◉。右クリックで×（自分の印）。濃い×は分かった空き。小さい数字は狙い撃ち（まわり8マスの鏡の数）。</p>';
+    h += '<p class="small quiet">こつ：数が0の行と列には鏡がない。弓から光をたどり、曲がれる所（その行と列に鏡が残っている所）を探す。数は置いた鏡と合うと緑、超えると赤。</p>';
+    h += '<p class="small quiet">光は今置いてある鏡でその場で線で通る。届いた的は ◉。右クリックで×（自分の印）。濃い×は分かった空き。小さい数字は狙い撃ち（まわり8マスの鏡の数）。盤の上でマウスホイールを回すと ╱・╲・× が変わる。</p>';
     h += quitHtml();
     return h;
   }

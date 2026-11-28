@@ -37,10 +37,12 @@ export const BOW_SECOND = Object.freeze({ color: 'break', break: 'label', label:
 export function bowSpec(node, level) {
   const s = BOW_SIZES.small, l = BOW_SIZES.large;
   const base = { kind: 'beam' };
-  if (node.kind === 'small') return level < 2 ? { ...base, ...s, rules: [], maxNodes: 400 } : { ...base, ...l, rules: [], maxNodes: 6000 };
+  // extraShown：答えが1つに決まった後に見せる鏡の数（判定表 第19回「技を使う前提の難しさ」→ 5×5 は2、7×7 は3）
+  const S = { ...base, ...s, extraShown: 2 }, L = { ...base, ...l, extraShown: 3 };
+  if (node.kind === 'small') return level < 2 ? { ...S, rules: [], maxNodes: 400 } : { ...L, rules: [], maxNodes: 6000 };
   const main = node.rules ?? [node.rule];
-  if (node.kind === 'secret' || node.kind === 'cross') return { ...base, ...l, rules: main, maxNodes: 8000 };
-  if (level <= 1) return { ...base, ...s, rules: main, maxNodes: 600 };
-  if (level === 2) return { ...base, ...l, rules: main, maxNodes: 6000 };
-  return { ...base, ...l, rules: [main[0], BOW_SECOND[main[0]]], maxNodes: 8000 };
+  if (node.kind === 'secret' || node.kind === 'cross') return { ...L, rules: main, maxNodes: 8000 };
+  if (level <= 1) return { ...S, rules: main, maxNodes: 600 };
+  if (level === 2) return { ...L, rules: main, maxNodes: 6000 };
+  return { ...L, rules: [main[0], BOW_SECOND[main[0]]], maxNodes: 8000 };
 }

@@ -58,7 +58,7 @@ export function sudoBoardHtml(sc) {
   for (const line of p.lines ?? []) {
     const pts = line.map((i) => `${(i % n) + 0.5},${Math.floor(i / n) + 0.5}`).join(' ');
     const s0 = line[0];
-    lines += `<polyline points="${pts}"/><circle cx="${(s0 % n) + 0.5}" cy="${Math.floor(s0 / n) + 0.5}" r="0.13"/>`;
+    lines += `<polyline points="${pts}" marker-mid="url(#cyc-arrow)" marker-end="url(#cyc-arrow)"/><circle cx="${(s0 % n) + 0.5}" cy="${Math.floor(s0 / n) + 0.5}" r="0.13"/>`;
   }
   let marks = '';
   for (const [a, b] of p.marks ?? []) {
@@ -68,7 +68,8 @@ export function sudoBoardHtml(sc) {
     const cy = horiz ? ay + 0.5 : ay + 1;
     marks += `<rect x="${cx - 0.09}" y="${cy - 0.09}" width="0.18" height="0.18" transform="rotate(45 ${cx} ${cy})"/>`;
   }
-  const over = `<svg class="sudo-over" viewBox="0 0 ${n} ${n}" preserveAspectRatio="none" aria-hidden="true">${cageSvg}${lines ? `<g class="cycle">${lines}</g>` : ''}${marks ? `<g class="react">${marks}</g>` : ''}</svg>`;
+  const defs = '<defs><marker id="cyc-arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="2.2" markerHeight="2.2" orient="auto"><path d="M1,1 L9,5 L1,9 z" fill="#c58af9"/></marker></defs>';
+  const over = `<svg class="sudo-over" viewBox="0 0 ${n} ${n}" preserveAspectRatio="none" aria-hidden="true">${defs}${cageSvg}${lines ? `<g class="cycle">${lines}</g>` : ''}${marks ? `<g class="react">${marks}</g>` : ''}</svg>`;
   return `<div class="sudo-wrap" style="--n:${n}"><div class="sudo" role="grid" aria-label="巻物の盤">${cells}</div>${over}</div>`;
 }
 
@@ -109,7 +110,14 @@ export function beamBoardHtml(sc) {
   let g = '';
   // 1段目：列の鏡の数
   g += '<span class="bcnt"></span><span class="bcnt"></span>';
-  for (let x = 0; x < w; x++) g += `<span class="bcnt">${p.colCounts ? p.colCounts[x] : ''}</span>`;
+  // 鏡の数：今置いてある数と比べて、合えば緑・超えたら赤（判定表 第19回「鏡の数が分かりにくい」）
+  const isM = (v) => v === SLASH || v === BACK;
+  const cntCls = (have, want) => (have === want ? ' ok' : have > want ? ' over' : '');
+  for (let x = 0; x < w; x++) {
+    let have = 0;
+    for (let y = 0; y < h; y++) if (isM(cells[y * w + x])) have += 1;
+    g += p.colCounts ? `<span class="bcnt${cntCls(have, p.colCounts[x])}" title="この列の鏡の数">${p.colCounts[x]}</span>` : '<span class="bcnt"></span>';
+  }
   g += '<span class="bcnt"></span>';
   // 2段目：上の口
   g += '<span class="bcnt"></span><span class="bp"></span>';
@@ -117,7 +125,9 @@ export function beamBoardHtml(sc) {
   g += '<span class="bp"></span>';
   const hintAt = new Map((sc.hints ?? []).map((x) => [x.at, x]));
   for (let y = 0; y < h; y++) {
-    g += `<span class="bcnt row">${p.rowCounts ? p.rowCounts[y] : ''}</span>`;
+    let haveRow = 0;
+    for (let x = 0; x < w; x++) if (isM(cells[y * w + x])) haveRow += 1;
+    g += p.rowCounts ? `<span class="bcnt row${cntCls(haveRow, p.rowCounts[y])}" title="この行の鏡の数">${p.rowCounts[y]}</span>` : '<span class="bcnt row"></span>';
     g += portHtml('left', y);
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
