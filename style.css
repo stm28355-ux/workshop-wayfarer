@@ -51,9 +51,9 @@ button { font: inherit; color: inherit; }
   .band .log { grid-column: 3; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 12px; align-content: start; }
   .band .log li { white-space: normal; overflow: visible; }
 }
-.regions { display: flex; flex-wrap: wrap; gap: 4px; }
-.region-btn { min-height: 30px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--line); background: #1a1e24; color: var(--ink); cursor: pointer; font-size: 0.85rem; }
-.region-btn[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, #1a1e24); }
+/* 地域の選び箱は白地に黒い文字（第25回 Q4） */
+.hero-panel .region select { background: #f4f1ea; color: #1b1f26; font-weight: 600; min-width: 8em; border-color: #c9c2b4; }
+.region-row { gap: 8px; min-height: 0; }
 #region-note:empty { display: none; }
 .hero-panel { display: grid; gap: 6px; align-content: start; }
 .hero-panel p { margin: 0; }
@@ -71,14 +71,10 @@ button { font: inherit; color: inherit; }
 .scene svg.px { image-rendering: pixelated; display: block; }
 .scene-hero svg { position: absolute; bottom: 0; left: 0; }
 .scene-hero { width: 64px; height: 64px; }
-.scene-hero .hero-walk, .scene-hero .hero-strike { visibility: hidden; }
-.scene.walking .scene-hero .hero-stand { animation: step-a 0.5s steps(1) infinite; }
-.scene.walking .scene-hero .hero-walk { animation: step-b 0.5s steps(1) infinite; }
-@keyframes step-a { 0% { visibility: visible; } 50% { visibility: hidden; } }
-@keyframes step-b { 0% { visibility: hidden; } 50% { visibility: visible; } }
+/* 勇者は1つの絵で、歩くときは小さく上下（絵を切り替えると点滅して見えた。第25回 Q1） */
+.scene.walking .scene-hero { animation: bob 0.5s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-2px); } }
 .scene.fighting .scene-hero { animation: lunge var(--atk, 1s) ease-in-out infinite; }
-.scene.fighting .scene-hero .hero-stand { animation: step-a var(--atk, 1s) steps(1) infinite; }
-.scene.fighting .scene-hero .hero-strike { animation: step-b var(--atk, 1s) steps(1) infinite; }
 @keyframes lunge { 0%, 100% { transform: translateX(0); } 40% { transform: translateX(6px); } }
 
 .scene-fx { position: absolute; inset: 0; pointer-events: none; }
@@ -584,3 +580,4 @@ dialog li { margin-bottom: 6px; }
 
 /* 中身の広い物（樹形図など）で段の列が広がらないように */
 .stage > *, .band > * { min-width: 0; }
+.meter-row .meter, .meter-row .meter.hp { width: 100%; min-width: 0; flex: none; }

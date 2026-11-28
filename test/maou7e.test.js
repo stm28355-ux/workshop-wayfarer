@@ -74,3 +74,20 @@ test('魔王を倒すと終わりが開く', () => {
   assert.ok(s.open.unlocks.includes('ending'));
   assert.ok(s.cleared.includes(6));
 });
+
+test('帰る：今の出発をやめて、選んだ地域へ出発し直す。旅支度の残りは持ち越す（判定表 第25回 Q4）', async () => {
+  const { retire, chooseRegion } = await import('../src/core/game.js');
+  let s = createGame();
+  s.open.regions.push(2);
+  s.run.prep = 1e6;
+  s.run.step = 300;
+  s = chooseRegion(s, 2).state;
+  const r = retire(s);
+  assert.ok(r.ok);
+  assert.equal(r.state.run.region, 2);
+  assert.equal(r.state.run.step, 0);
+  assert.ok(r.state.run.prep >= 1e6, '残りを持ち越す');
+  assert.ok(r.state.run.wait > 0);
+  assert.equal(r.state.stats.returns.retire, 1);
+  assert.ok(r.events.some((e) => e.type === 'return' && e.reason === 'retire'));
+});
