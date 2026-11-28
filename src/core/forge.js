@@ -74,10 +74,25 @@ export function canStrike(session, id) {
 }
 
 // 叩く前に見せる伸び：[{ index, amount }]
+// 叩いたときの各マスの変わり方（叩いたマスは index・amount）。魔銀でこの1打で冷めるときは、
+// 全部のマスの −1 も入れて decay を付ける（判定表 第17回 Q4：計算しなくても見えるように）。
 export function preview(session, id, cell) {
   if (!canStrike(session, id)) return [];
-  const amount = strikeAmount(session, id);
-  return strikeCells(session, id, cell).map((index) => ({ index, amount }));
+  const next = strike(session, id, cell);
+  const hit = new Set(strikeCells(session, id, cell));
+  const decay = session.quirk === 'decay' && session.left === 1;
+  const out = [];
+  for (let i = 0; i < session.values.length; i++) {
+    const amount = next.values[i] - session.values[i];
+    if (!hit.has(i) && amount === 0) continue;
+    out.push(decay ? { index: i, amount, decay: true, hit: hit.has(i) } : { index: i, amount });
+  }
+  return out;
+}
+
+// 今の集中力でその叩き方をあと何回使えるか（判定表 第17回 Q2）。
+export function strikesLeft(session, id) {
+  return canStrike(session, id) ? Math.floor(session.conc / STRIKES[id].cost) : 0;
 }
 
 // 叩くと冷める。段が下がるとき、魔銀は全部のマスが1下がる（判定表 第16回 C1）。

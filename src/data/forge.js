@@ -27,7 +27,7 @@ export const SLOTS = Object.freeze({
   accessory: { name: 'アクセサリー', group: 'shard' },
 });
 
-// 叩き方（判定表 第3回 C・第16回 B）。amount は赤熱のときの伸び。灼熱は2倍、暗赤は半分（切り捨て）。
+// 叩き方（判定表 第3回 C・第16回 B・第17回 Q2：十字と横薙ぎは集中力あたりの伸びが弱かったので集中力を1ずつ下げた）。amount は赤熱のときの伸び。灼熱は2倍、暗赤は半分（切り捨て）。
 // shape：one＝1マス、vertical＝縦2マス（下の段を押したら上と2マス）、cross＝押したマスと上下左右、row＝横1列。
 // fixed：温度に関係なく amount。needs：燃料にその欠片が入っているときだけ使える。
 export const STRIKES = Object.freeze({
@@ -35,8 +35,8 @@ export const STRIKES = Object.freeze({
   heavy: { name: '強打', shape: 'one', amount: 4, cost: 2 },
   vertical: { name: '縦打ち', shape: 'vertical', amount: 2, cost: 2 },
   fine: { name: '細打ち', shape: 'one', amount: 1, cost: 1, fixed: true, needs: 'ice' },
-  cross: { name: '十字打ち', shape: 'cross', amount: 1, cost: 3, needs: 'thunder' },
-  sweep: { name: '横薙ぎ', shape: 'row', amount: 1, cost: 2, needs: 'wind' },
+  cross: { name: '十字打ち', shape: 'cross', amount: 1, cost: 2, needs: 'thunder' },
+  sweep: { name: '横薙ぎ', shape: 'row', amount: 1, cost: 1, needs: 'wind' },
   smooth: { name: '均し', shape: 'one', amount: -1, cost: 1, fixed: true, needs: 'stone' },
 });
 export const TEMPS = Object.freeze([
